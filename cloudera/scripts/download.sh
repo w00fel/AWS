@@ -91,9 +91,9 @@ sed -i "s/securityGroupsIds-REPLACE-ME/${AWS_SECURITYGROUPIDS}/g" ${AWS_CLUSTER_
 sed -i "s/keyName-REPLACE-ME/${AWS_KEYNAME}/g" ${AWS_CLUSTER_CONF}
 sed -i "s/privateKeyName-REPLACE-ME/${AWS_PRIVATEKEYNAME}/g" ${AWS_CLUSTER_CONF}
 sed -i "s/image-REPLACE-ME/${AWS_AMI}/g" ${AWS_CLUSTER_CONF}
-sed -i "s/manager-type-REPLACE-ME/${AWS_CDH_MANAGER_TYPE}/g" ${AWS_CLUSTER_CONF}
-sed -i "s/master-type-REPLACE-ME/${AWS_CDH_MASTER_TYPE}/g" ${AWS_CLUSTER_CONF}
-sed -i "s/worker-type-REPLACE-ME/${AWS_CDH_WORKER_TYPE}/g" ${AWS_CLUSTER_CONF}
+sed -i "s/manager-type-REPLACE-ME/${AWS_CDH_MANAGER_INSTANCE_TYPE}/g" ${AWS_CLUSTER_CONF}
+sed -i "s/master-type-REPLACE-ME/${AWS_CDH_MASTER_INSTANCE_TYPE}/g" ${AWS_CLUSTER_CONF}
+sed -i "s/worker-type-REPLACE-ME/${AWS_CDH_WORKER_INSTANCE_TYPE}/g" ${AWS_CLUSTER_CONF}
 sed -i "s/master-count-REPLACE-ME/${AWS_CDH_MASTER_COUNT}/g" ${AWS_CLUSTER_CONF}
 sed -i "s/worker-count-REPLACE-ME/${AWS_CDH_WORKER_COUNT}/g" ${AWS_CLUSTER_CONF}
 
