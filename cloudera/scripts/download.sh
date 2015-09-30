@@ -61,9 +61,9 @@ cd /home/ec2-user/cloudera/aws
 chmod 755 ./jq
 export JQ_COMMAND=/home/ec2-user/cloudera/aws/jq
 
-AWS_CLUSTER_CONF=$(find /home/ec2-user/cloudera/ -name "aws.cluster.conf")
 
-wget https://s3.amazonaws.com/${BUILDBUCKET}/media/aws.cluster.conf.${VERSION} --output-document=${AWS_CLUSTER_CONF}
+wget https://raw.githubusercontent.com/w00fel/AWS/master/cloudera/config/aws.cluster.conf.${VERSION} --output-document=${AWS_CLUSTER_CONF}
+AWS_CLUSTER_CONF=$(find /home/ec2-user/cloudera/ -name "aws.cluster.conf")
 
 export AWS_DEFAULT_REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | ${JQ_COMMAND} '.region'  | sed 's/^"\(.*\)"$/\1/')
 export AWS_INSTANCEID=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | ${JQ_COMMAND} '.instanceId' | sed 's/^"\(.*\)"$/\1/' )
