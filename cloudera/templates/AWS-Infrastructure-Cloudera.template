@@ -81,7 +81,7 @@
             "MinLength": "1",
             "MaxLength": "1",
             "AllowedPattern": "[0-9]"
-        }
+        },
         "ClusterWorkerCount": {
             "Description": "The number of Cluster Worker Instances to start.",
             "Type": "String",
@@ -670,8 +670,8 @@
                                 "\n",
                                 "mkdir -p /home/ec2-user/cloudera/",
                                 "\n",
-                                "wget https://raw.githubusercontent.com/w00fel/AWS/master/cloudera/scripts/download.sh
-                                " --output-document=/home/ec2-user/cloudera/download.sh ",
+                                "wget https://raw.githubusercontent.com/w00fel/AWS/master/cloudera/scripts/download.sh ",
+                                "--output-document=/home/ec2-user/cloudera/download.sh ",
                                 "\n",
                                 "wget https://s3.amazonaws.com/",
                                 {

@@ -150,8 +150,6 @@ cluster {
             }
         }
 
-        placementGroup: placementGroup-REPLACE-ME
-
         roles {
             HDFS: ${roles.HDFS_WORKERS}
             YARN: ${roles.YARN_WORKERS}

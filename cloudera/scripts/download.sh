@@ -52,18 +52,17 @@ wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --output-document=/home/
 wget https://s3.amazonaws.com/${BUILDBUCKET}/media/jq --output-document=/home/ec2-user/cloudera/aws/jq
 
 tar xvf /home/ec2-user/cloudera/${LAUNCHPAD_CLI_ZIP} -C /home/ec2-user/cloudera/cloudera-director-client-${VERSION} --strip-components=1
-tar xvf /home/ec2-user/cloudera/${LAUNCHPAD_SERVER_ZIP} -C /home/ec2-user/cloudera/cloudera-director-server-${VERSION}--strip-components=1
+tar xvf /home/ec2-user/cloudera/${LAUNCHPAD_SERVER_ZIP} -C /home/ec2-user/cloudera/cloudera-director-server-${VERSION} --strip-components=1
 
 cd /home/ec2-user/cloudera/aws
 unzip awscli-bundle.zip
 ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
-cd /home/ec2-user/cloudera/aws
 chmod 755 ./jq
 export JQ_COMMAND=/home/ec2-user/cloudera/aws/jq
 
+AWS_CLUSTER_CONF=/home/ec2-user/cloudera/cloudera-director-client-${VERSION}/aws.cluster.conf
 
 wget https://raw.githubusercontent.com/w00fel/AWS/master/cloudera/config/aws.cluster.conf.${VERSION} --output-document=${AWS_CLUSTER_CONF}
-AWS_CLUSTER_CONF=$(find /home/ec2-user/cloudera/ -name "aws.cluster.conf")
 
 export AWS_DEFAULT_REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | ${JQ_COMMAND} '.region'  | sed 's/^"\(.*\)"$/\1/')
 export AWS_INSTANCEID=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | ${JQ_COMMAND} '.instanceId' | sed 's/^"\(.*\)"$/\1/' )
@@ -80,12 +79,6 @@ export AWS_CDH_WORKER_COUNT=WORKER-COUNT-CFN-REPLACE
 export AWS_CDH_MANAGER_INSTANCE_TYPE=MANAGER-TYPE-CFN-REPLACE
 export AWS_CDH_MASTER_INSTANCE_TYPE=MASTER-TYPE-CFN-REPLACE
 export AWS_CDH_WORKER_INSTANCE_TYPE=WORKER-TYPE-CFN-REPLACE
-
-CURRENT_DATE=$(date +"%m-%d-%Y")
-AWS_PLACEMENT_GROUP_NAME=AWS-PLACEMENT-GROUP-${AWS_DEFAULT_REGION}-${CURRENT_DATE}
-
-# Create PlacementGroup
-/usr/local/bin/aws ec2 create-placement-group --group-name ${AWS_PLACEMENT_GROUP_NAME} --strategy cluster
 
 # Replace these via script variables
 sed -i "s/region-REPLACE-ME/${AWS_DEFAULT_REGION}/g" ${AWS_CLUSTER_CONF}
