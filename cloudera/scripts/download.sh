@@ -6,11 +6,11 @@
 VERSION=1.5.0
 
 USERNAME=ec2-user
-USERHOME=/home/${USERHOME}
+USERHOME=/home/${USERNAME}}
 CLOUDERA=${USERHOME}/cloudera
 
 AMAZON=https://s3.amazonaws.com
-GITHUB=https://raw.githubusercontent.com/w00fel/AWS/master
+BUCKET=${AMAZON}/cleo-cloudera-aws
 IDENTITY=http://169.254.169.254/latest/dynamic/instance-identity/document
 
 #
@@ -32,7 +32,7 @@ LAUNCHPAD_SERVER_ZIP=cloudera-director-server-${VERSION}-director${VERSION}.tar.
 
 for LAUNCHPAD_ZIP in ${LAUNCHPAD_CLIENT_ZIP} ${LAUNCHPAD_SERVER_ZIP}
 do
-    wget ${GITHUB}/cloudera/media/${LAUNCHPAD_ZIP} --output-document=${CLOUDERA}/${LAUNCHPAD_ZIP}
+    wget -nv ${BUCKET}/media/${LAUNCHPAD_ZIP} --output-document=${CLOUDERA}/${LAUNCHPAD_ZIP}
 done
 
 tar xvf ${CLOUDERA}/${LAUNCHPAD_CLIENT_ZIP} -C ${CLOUDERA}/cloudera-director-client-${VERSION} --strip-components=1
@@ -41,10 +41,9 @@ tar xvf ${CLOUDERA}/${LAUNCHPAD_SERVER_ZIP} -C ${CLOUDERA}/cloudera-director-ser
 #
 # Get default region and instance id.
 #
-wget ${AMAZON}/aws-cli/awscli-bundle.zip --output-document=${CLOUDERA}/aws/awscli-bundle.zip
-wget ${GITHUB}/cloudera/media/jq --output-document=${CLOUDERA}/aws/jq
+wget -nv ${AMAZON}/aws-cli/awscli-bundle.zip --output-document=${CLOUDERA}/aws/awscli-bundle.zip
+wget -nv ${BUCKET}/media/jq --output-document=${CLOUDERA}/aws/jq
 
-#cd ${CLOUDERA}/aws
 unzip ${CLOUDERA}/aws/awscli-bundle.zip -d ${CLOUDERA}/aws
 ${CLOUDERA}/aws/awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
 chmod 755 ${CLOUDERA}/aws/jq
@@ -57,9 +56,7 @@ export AWS_INSTANCEID=$(curl -s ${IDENTITY} | ${JQ_CMD} '.instanceId' | sed 's/^
 # Customize aws.cluster.conf.
 #
 AWS_CLUSTER_CONF=${CLOUDERA}/cloudera-director-client-${VERSION}/aws.cluster.conf
-wget ${GITHUB}/cloudera/config/aws.cluster.conf.${VERSION} --output-document=${AWS_CLUSTER_CONF}
-
-#cd ${CLOUDERA}/cloudera-director-client-${VERSION}
+wget -nv ${BUCKET}/config/aws.cluster.conf.${VERSION} --output-document=${AWS_CLUSTER_CONF}
 
 export AWS_SUBNETID=SUBNETID-CFN-REPLACE
 export AWS_SECURITYGROUPIDS=SECURITYGROUPIDS-CFN-REPLACE
@@ -87,7 +84,7 @@ sed -i "s/worker-type-REPLACE-ME/${AWS_CDH_WORKER_INSTANCE_TYPE}/g" ${AWS_CLUSTE
 sed -i "s/master-count-REPLACE-ME/${AWS_CDH_MASTER_COUNT}/g" ${AWS_CLUSTER_CONF}
 sed -i "s/worker-count-REPLACE-ME/${AWS_CDH_WORKER_COUNT}/g" ${AWS_CLUSTER_CONF}
 
-wget ${GITHUB}/keys/${AWS_PRIVATEKEYNAME} --output-document=${USERHOME}/${AWS_PRIVATEKEYNAME}
+wget -nv ${BUCKET}/keys/${AWS_PRIVATEKEYNAME} --output-document=${USERHOME}/${AWS_PRIVATEKEYNAME}
 chmod 400 ${USERHOME}/${AWS_PRIVATEKEYNAME}
 
 chown -R ${USERNAME} ${CLOUDERA}
