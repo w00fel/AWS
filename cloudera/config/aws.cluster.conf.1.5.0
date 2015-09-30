@@ -15,7 +15,6 @@ provider {
     region: region-REPLACE-ME
     subnetId: subnetId-REPLACE-ME
     securityGroupsIds: securityGroupsIds-REPLACE-ME
-    instanceNamePrefix: cloudera-director
 }
 
 #
@@ -35,7 +34,7 @@ instances {
         image: image-REPLACE-ME
 
         tags {
-            owner: ${?USER}
+            owner: instanceId-REPLACE-ME 
         }
     }
 
@@ -44,7 +43,7 @@ instances {
         image: image-REPLACE-ME
 
         tags {
-            owner: ${?USER}
+            owner: instanceId-REPLACE-ME
         }
     }
 
@@ -53,7 +52,7 @@ instances {
         image: image-REPLACE-ME
 
         tags {
-            owner: ${?USER}
+            owner: instanceId-REPLACE-ME
         }
     }
 }
@@ -64,6 +63,7 @@ instances {
 cloudera-manager {
     instance: ${instances.manager} {
         tags {
+            Name: "CDH Manager"
             application: "Cloudera Manager 5"
             group: manager
         }
@@ -129,6 +129,7 @@ cluster {
 
         instance: ${instances.master} {
             tags {
+                Name: "CDH Master"
                 group: master
             }
         }
@@ -146,6 +147,7 @@ cluster {
 
         instance: ${instances.worker} {
             tags {
+                Name: "CDH Worker"
                 group: worker
             }
         }

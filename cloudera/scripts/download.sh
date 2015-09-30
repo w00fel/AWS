@@ -6,6 +6,7 @@
 VERSION=1.5.0
 
 USERNAME=ec2-user
+USERGROUP=ec2-user
 USERHOME=/home/${USERNAME}
 CLOUDERA=${USERHOME}/cloudera
 
@@ -70,7 +71,7 @@ export AWS_CDH_MASTER_INSTANCE_TYPE=MASTER-TYPE-CFN-REPLACE
 export AWS_CDH_WORKER_INSTANCE_TYPE=WORKER-TYPE-CFN-REPLACE
 
 sed -i "s/region-REPLACE-ME/${AWS_DEF_REGION}/g" ${AWS_CLUSTER_CONF}
-sed -i "s/instanceNamePrefix.*/instanceNamePrefix: cloudera-director-${AWS_INSTANCEID}/g" ${AWS_CLUSTER_CONF}
+sed -i "s/instanceId-REPLACE-ME/${AWS_INSTANCEID}/g" ${AWS_CLUSTER_CONF}
 
 # Replace these via CloudFormation User-Data
 sed -i "s/subnetId-REPLACE-ME/${AWS_SUBNETID}/g" ${AWS_CLUSTER_CONF}
@@ -87,4 +88,5 @@ sed -i "s/worker-count-REPLACE-ME/${AWS_CDH_WORKER_COUNT}/g" ${AWS_CLUSTER_CONF}
 wget -nv ${BUCKET}/keys/${AWS_PRIVATEKEYNAME} --output-document=${USERHOME}/${AWS_PRIVATEKEYNAME}
 chmod 400 ${USERHOME}/${AWS_PRIVATEKEYNAME}
 
-chown -R ${USERNAME} ${CLOUDERA}
+chown ${USERNAME}:${USERGROUP} ${USERHOME}/${AWS_PRIVATEKEYNAME}
+chown -R ${USERNAME}:${USERGROUP} ${CLOUDERA}
