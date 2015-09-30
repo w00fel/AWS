@@ -6,7 +6,7 @@
 VERSION=1.5.0
 
 USERNAME=ec2-user
-USERHOME=/home/${USERNAME}}
+USERHOME=/home/${USERNAME}
 CLOUDERA=${USERHOME}/cloudera
 
 AMAZON=https://s3.amazonaws.com
