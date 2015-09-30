@@ -2,11 +2,6 @@
     "AWSTemplateFormatVersion": "2010-09-09",
     "Description": "AWS Infrastructure Deployment for Cloudera Hadoop",
     "Parameters": {
-        "BuildBucket": {
-            "Description": "S3 bucket containing templates and scripts [Don't change].",
-            "Type": "String",
-            "Default": "quickstart-reference/cloudera/hadoop/latest"
-        },
         "VPCCIDR": {
             "Description": "CIDR Block for the VPC you are creating.",
             "Type": "String",
@@ -56,7 +51,7 @@
         "ClusterMasterType": {
             "Description": "Amazon EC2 instance type for the Cluster Master Instance.",
             "Type": "String",
-            "Default": "m4.xlarge",
+            "Default": "m4.large",
             "AllowedValues": [
                 "t2.large",
                 "m4.large",
@@ -296,6 +291,12 @@
                         "IpProtocol": "udp",
                         "FromPort": "123",
                         "ToPort": "123",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "7000",
+                        "ToPort": "65535",
                         "CidrIp": "0.0.0.0/0"
                     },
                     {
@@ -654,7 +655,11 @@
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": "ClusterLauncher Instance (Public Subnet)"
+                        "Value": "Cluster Launcher Instance"
+                    },
+                    {
+                        "Key": "group",
+                        "Value": "launcher"
                     }
                 ],
                 "InstanceType": {
@@ -662,122 +667,112 @@
                 },
 
                 "UserData": {
-                    "Fn::Base64": {
-                        "Fn::Join": [
-                            "",
-                            [
-                                "#!/bin/bash ",
-                                "\n",
-                                "mkdir -p /home/ec2-user/cloudera/",
-                                "\n",
-                                "wget https://raw.githubusercontent.com/w00fel/AWS/master/cloudera/scripts/download.sh ",
-                                "--output-document=/home/ec2-user/cloudera/download.sh ",
-                                "\n",
-                                "wget https://s3.amazonaws.com/",
+                    "Fn::Base64": { "Fn::Join": [ "", [
+                        "#!/bin/bash ",
+                        "\n",
+                        "mkdir -p /home/ec2-user/cloudera/",
+                        "\n",
+                        "wget https://raw.githubusercontent.com/w00fel/AWS/master/cloudera/scripts/download.sh ",
+                        "--output-document=/home/ec2-user/cloudera/download.sh ",
+                        "\n",
+                        "wget https://raw.githubusercontent.com/w00fel/AWS/master/cloudera/scripts/cfn-replace.sh ",
+                        "--output-document=/home/ec2-user/cloudera/cfn-replace.sh ",
+                        "\n",
+                        "wget https://raw.githubusercontent.com/w00fel/AWS/master/cloudera/scripts/cleanup.sh ",
+                        "--output-document=/home/ec2-user/cloudera/cleanup.sh ",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                        "SUBNETID-CFN-REPLACE",
+                        "=",
+                        {
+                            "Ref": "DMZSubnet"
+                        },
+                        " /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                        "SECURITYGROUPIDS-CFN-REPLACE",
+                        "=",
+                        {
+                            "Ref": "ClusterLauncherSecurityGroup"
+                        },
+                        " /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                        "KEYNAME-CFN-REPLACE",
+                        "=",
+                        {
+                            "Ref": "KeyName"
+                        },
+                        " /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                        "AMI-CFN-REPLACE",
+                        "=",
+                        {
+                            "Fn::FindInMap": [
+                                "ClusterLauncherAMI",
                                 {
-                                    "Ref": "BuildBucket"
+                                    "Ref": "AWS::Region"
                                 },
-                                "/scripts/cfn-replace.sh --output-document=/home/ec2-user/cloudera/cfn-replace.sh ",
-                                "\n",
-                                "wget https://s3.amazonaws.com/",
-                                {
-                                    "Ref": "BuildBucket"
-                                },
-                                "/scripts/cleanup.sh --output-document=/home/ec2-user/cloudera/cleanup.sh ",
-                                "\n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "SUBNETID-CFN-REPLACE",
-                                "=",
-                                {
-                                    "Ref": "DMZSubnet"
-                                },
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "SECURITYGROUPIDS-CFN-REPLACE",
-                                "=",
-                                {
-                                    "Ref": "ClusterLauncherSecurityGroup"
-                                },
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "KEYNAME-CFN-REPLACE",
-                                "=",
-                                {
-                                    "Ref": "KeyName"
-                                },
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "AMI-CFN-REPLACE",
-                                "=",
-                                {
-                                    "Fn::FindInMap": [
-                                        "ClusterLauncherAMI",
-                                        {
-                                            "Ref": "AWS::Region"
-                                        },
-                                        "AMI"
-                                    ]
-                                },
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "MANAGER-TYPE-CFN-REPLACE",
-                                "=",
-                                {
-                                    "Ref": "ClusterManagerType"
-                                },
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "MASTER-TYPE-CFN-REPLACE",
-                                "=",
-                                {
-                                    "Ref": "ClusterMasterType"
-                                },
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "WORKER-TYPE-CFN-REPLACE",
-                                "=",
-                                {
-                                    "Ref": "ClusterWorkerType"
-                                },
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "MASTER-COUNT-CFN-REPLACE",
-                                "=",
-                                {
-                                    "Ref": "ClusterMasterCount"
-                                },
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "WORKER-COUNT-CFN-REPLACE",
-                                "=",
-                                {
-                                    "Ref": "ClusterWorkerCount"
-                                },
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                                "HADOOPINSTANCE-TYPE-CFN-REPLACE",
-                                "=",
-                                "m3.2xlarge",
-                                " /home/ec2-user/cloudera/download.sh \n",
-                                "/bin/sh /home/ec2-user/cloudera/download.sh",
-                                " -b ",
-                                {
-                                    "Ref": "BuildBucket"
-                                },
-                                "\n",
-                                "/bin/sh /home/ec2-user/cloudera/cleanup.sh \n",
-                                "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
-                                "\"Reason\" : \"The AWS-Cloudera Cluster Launcher is ready.\",",
-                                "\"UniqueId\" : \"ClusterLauncher Complete\",",
-                                "\"Data\" : \"Done\"}' ",
-                                "\"",
-                                {
-                                    "Ref": "WebServerWaitHandle"
-                                },
-                                "\"\n"
+                                "AMI"
                             ]
-                        ]
-                    }
+                        },
+                        " /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                        "MANAGER-TYPE-CFN-REPLACE",
+                        "=",
+                        {
+                            "Ref": "ClusterManagerType"
+                        },
+                        " /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                        "MASTER-TYPE-CFN-REPLACE",
+                        "=",
+                        {
+                            "Ref": "ClusterMasterType"
+                        },
+                        " /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                        "WORKER-TYPE-CFN-REPLACE",
+                        "=",
+                        {
+                            "Ref": "ClusterWorkerType"
+                        },
+                        " /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                        "MASTER-COUNT-CFN-REPLACE",
+                        "=",
+                        {
+                            "Ref": "ClusterMasterCount"
+                        },
+                        " /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                        "WORKER-COUNT-CFN-REPLACE",
+                        "=",
+                        {
+                            "Ref": "ClusterWorkerCount"
+                        },
+                        " /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/download.sh",
+                        "\n",
+                        "/bin/sh /home/ec2-user/cloudera/cleanup.sh",
+                        "\n",
+                        "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                        "\"Reason\" : \"The AWS-Cloudera Cluster Launcher is ready.\",",
+                        "\"UniqueId\" : \"Cluster Launcher Complete\",",
+                        "\"Data\" : \"Done\"}' ",
+                        "\"",
+                        {
+                            "Ref": "WebServerWaitHandle"
+                        },
+                        "\"\n"
+                    ]]}
                 }
             }
         },
