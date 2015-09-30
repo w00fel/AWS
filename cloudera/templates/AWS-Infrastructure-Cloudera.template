@@ -1,0 +1,801 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "AWS Infrastructure Deployment for Cloudera Hadoop",
+    "Parameters": {
+        "BuildBucket": {
+            "Description": "S3 bucket containing templates and scripts [Don't change].",
+            "Type": "String",
+            "Default": "quickstart-reference/cloudera/hadoop/latest"
+        },
+        "VPCCIDR": {
+            "Description": "CIDR Block for the VPC you are creating.",
+            "Type": "String",
+            "Default": "10.0.0.0/16",
+            "AllowedPattern": "[a-zA-Z0-9]+\\..+"
+        },
+        "SubnetCIDR": {
+            "Description": "CIDR Block for the Subnet located in the new VPC.",
+            "Type": "String",
+            "Default": "10.0.1.0/24",
+            "AllowedPattern": "[a-zA-Z0-9]+\\..+"
+        },
+        "AccessCIDR": {
+            "Description": "IP CIDR from which you are likely to SSH into the ClusterLauncher instance.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "0.0.0.0/0",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid CIDR range of the form x.x.x.x/x."
+        },
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair. ClusterLauncher instance will launch with this KeyPair.",
+            "Type": "AWS::EC2::KeyPair::KeyName",
+            "Default": "Hadoop"
+        },
+        "ClusterLauncherType": {
+            "Description": "Amazon EC2 instance type for the Cluster Launcher Instance.",
+            "Type": "String",
+            "Default": "t2.large",
+            "AllowedValues": [
+                "t2.large",
+                "m4.large",
+                "m4.xlarge"
+            ]
+        },
+        "ClusterManagerType": {
+            "Description": "Amazon EC2 instance type for the Cluster Manager Instance.",
+            "Type": "String",
+            "Default": "m4.xlarge",
+            "AllowedValues": [
+                "t2.large",
+                "m4.large",
+                "m4.xlarge"
+            ]
+        },
+        "ClusterMasterType": {
+            "Description": "Amazon EC2 instance type for the Cluster Master Instance.",
+            "Type": "String",
+            "Default": "m4.xlarge",
+            "AllowedValues": [
+                "t2.large",
+                "m4.large",
+                "m4.xlarge"
+            ]
+        },
+        "ClusterWorkerType": {
+            "Description": "Amazon EC2 instance type for the Cluster Worker Instances.",
+            "Type": "String",
+            "Default": "m4.large",
+            "AllowedValues": [
+                "t2.large",
+                "m4.large",
+                "m4.xlarge",
+                "i2.xlarge"
+            ]
+        },
+        "ClusterMasterCount": {
+            "Description": "The number of Cluster Master Instances to start.",
+            "Type": "String",
+            "Default": "1",
+            "MinLength": "1",
+            "MaxLength": "1",
+            "AllowedPattern": "[0-9]"
+        }
+        "ClusterWorkerCount": {
+            "Description": "The number of Cluster Worker Instances to start.",
+            "Type": "String",
+            "Default": "3",
+            "MinLength": "1",
+            "MaxLength": "2",
+            "AllowedPattern": "[0-9]+"
+        }
+    },
+    "Mappings": {
+        "DomainNameMapping": {
+            "us-east-1": {
+                "NAME": "ec2.internal"
+            },
+            "us-west-1": {
+                "NAME": "us-west-1.compute.internal"
+            },
+            "us-west-2": {
+                "NAME": "us-west-2.compute.internal"
+            },
+            "eu-west-1": {
+                "NAME": "eu-west-1.compute.internal"
+            },
+            "eu-central-1": {
+                "NAME": "eu-central-1.compute.internal"
+            },
+            "ap-northeast-1": {
+                "NAME": "ap-northeast-1.compute.internal"
+            },
+            "ap-southeast-1": {
+                "NAME": "ap-southeast-1.compute.internal"
+            },
+            "ap-southeast-2": {
+                "NAME": "ap-southeast-2.compute.internal"
+            },
+            "sa-east-1": {
+                "NAME": "sa-east-1.compute.internal"
+            }
+        },
+        "ClusterLauncherAMI": {
+            "eu-central-1": {
+                "AMI": "ami-008ebf1d"
+            },
+            "sa-east-1": {
+                "AMI": "ami-df06b3c2"
+            },
+            "ap-northeast-1": {
+                "AMI": "ami-abb682aa"
+            },
+            "eu-west-1": {
+                "AMI": "ami-04a00d73"
+            },
+            "us-east-1": {
+                "AMI": "ami-00a11e68"
+            },
+            "us-west-1": {
+                "AMI": "ami-4b3f350e"
+            },
+            "us-west-2": {
+                "AMI": "ami-11125e21"
+            },
+            "ap-southeast-2": {
+                "AMI": "ami-0d254837"
+            },
+            "ap-southeast-1": {
+                "AMI": "ami-ce1f399c"
+            }
+        }
+    },
+    "Outputs": {
+        "ClusterLauncherEIP": {
+            "Description": "ClusterLauncher Server located in DMZ Subnet",
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "ClusterLauncher Server IP:",
+                        {
+                            "Fn::GetAtt": [
+                                "ClusterLauncherInstance",
+                                "PublicIp"
+                            ]
+                        }
+                    ]
+                ]
+            }
+        },
+        "VPCID": {
+            "Description": "VPC-ID of the newly created VPC",
+            "Value": {
+                "Ref": "VPC"
+            }
+        },
+        "PublicSubnet": {
+            "Description": "Subnet-ID of the Public or DMZ Subnet",
+            "Value": {
+                "Ref": "DMZSubnet"
+            }
+        }
+    },
+    "Resources": {
+        "ClouderaDHCP": {
+            "Type": "AWS::EC2::DHCPOptions",
+            "Properties": {
+                "DomainName": {
+                    "Fn::FindInMap": [
+                        "DomainNameMapping",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "NAME"
+                    ]
+                },
+                "DomainNameServers": [
+                    "AmazonProvidedDNS"
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "ClouderaDHCP"
+                    }
+                ]
+            }
+        },
+        "VPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "VPCCIDR"
+                },
+                "EnableDnsHostnames": "true",
+                "EnableDnsSupport": "true",
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": "Cloudera Hadoop"
+                    }
+                ]
+            }
+        },
+        "ClouderaVPCDHCPOptionsAssociation": {
+            "Type": "AWS::EC2::VPCDHCPOptionsAssociation",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "DhcpOptionsId": {
+                    "Ref": "ClouderaDHCP"
+                }
+            }
+        },
+        "InternetGateway": {
+            "Type": "AWS::EC2::InternetGateway"
+        },
+        "AttachGateway": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "InternetGatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            }
+        },
+        "DMZSubnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Ref": "SubnetCIDR"
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": "ClusterLauncher (Cloudera)"
+                    },
+                    {
+                        "Key": "Network",
+                        "Value": "Public"
+                    }
+                ],
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        0,
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                }
+            }
+        },
+        "ClusterLauncherSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "ClusterLauncher Instance security group",
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": {
+                            "Ref": "AccessCIDR"
+                        }
+                    },
+                    {
+                        "IpProtocol": "udp",
+                        "FromPort": "123",
+                        "ToPort": "123",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "1",
+                        "ToPort": "65535",
+                        "CidrIp": {
+                            "Ref": "SubnetCIDR"
+                        }
+                    }
+                ],
+                "SecurityGroupEgress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "1",
+                        "ToPort": "65535",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "udp",
+                        "FromPort": "1",
+                        "ToPort": "65535",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "ClusterLauncherEIP": {
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc"
+            }
+        },
+        "ClusterLauncherInterface": {
+            "Type": "AWS::EC2::NetworkInterface",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "DMZSubnet"
+                },
+                "Description": "Interface for ClusterLauncher Instance",
+                "GroupSet": [
+                    {
+                        "Ref": "ClusterLauncherSecurityGroup"
+                    }
+                ],
+                "SourceDestCheck": "true",
+                "Tags": [
+                    {
+                        "Key": "Network",
+                        "Value": "Public (Cloudera)"
+                    }
+                ]
+            }
+        },
+        "AssociateClusterLauncherEIP": {
+            "Type": "AWS::EC2::EIPAssociation",
+            "Properties": {
+                "AllocationId": {
+                    "Fn::GetAtt": [
+                        "ClusterLauncherEIP",
+                        "AllocationId"
+                    ]
+                },
+                "NetworkInterfaceId": {
+                    "Ref": "ClusterLauncherInterface"
+                }
+            }
+        },
+        "DMZRouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": "DMZ"
+                    }
+                ]
+            }
+        },
+        "PublicRoute": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "DMZRouteTable"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            }
+        },
+        "PublicNetworkAcl": {
+            "Type": "AWS::EC2::NetworkAcl",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Network",
+                        "Value": "Public"
+                    }
+                ]
+            }
+        },
+        "PublicSubnetRouteTableAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "DMZSubnet"
+                },
+                "RouteTableId": {
+                    "Ref": "DMZRouteTable"
+                }
+            }
+        },
+        "InboundPublicNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "PublicNetworkAcl"
+                },
+                "RuleNumber": "100",
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "Egress": "false",
+                "CidrBlock": "0.0.0.0/0",
+                "PortRange": {
+                    "From": "0",
+                    "To": "65535"
+                }
+            }
+        },
+        "OutBoundPublicNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "PublicNetworkAcl"
+                },
+                "RuleNumber": "100",
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "Egress": "true",
+                "CidrBlock": "0.0.0.0/0",
+                "PortRange": {
+                    "From": "0",
+                    "To": "65535"
+                }
+            }
+        },
+        "ClusterLauncherInstanceRootRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "root",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:*",
+                                        "ec2:Describe*",
+                                        "ec2:AttachNetworkInterface",
+                                        "ec2:AttachVolume",
+                                        "ec2:CreateTags",
+                                        "ec2:CreateVolume",
+                                        "ec2:DeleteVolume",
+                                        "ec2:RunInstances",
+                                        "ec2:StartInstances",
+                                        "ec2:CreateSecurityGroup",
+                                        "ec2:CreatePlacementGroup",
+                                        "ec2:CreateSnapshot",
+                                        "*"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "cloudformation:CreateStack",
+                                        "cloudformation:DeleteStack",
+                                        "cloudformation:DescribeStack",
+                                        "cloudformation:EstimateTemplateCost",
+                                        "cloudformation:ValidateTemplate",
+                                        "cloudformation:DescribeStackEvents",
+                                        "cloudformation:DescribeStackResource",
+                                        "cloudformation:DescribeStackResources",
+                                        "cloudformation:DescribeStacks"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:CreateRole"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:PutRolePolicy"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:CreateInstanceProfile"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:AddRoleToInstanceProfile"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:PassRole"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ec2:RevokeSecurityGroupEgress"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ec2:AuthorizeSecurityGroupEgress"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ec2:AuthorizeSecurityGroupIngress"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ec2:CreateNetworkInterface"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ec2:ModifyNetworkInterfaceAttribute"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "ClusterLauncherProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [
+                    {
+                        "Ref": "ClusterLauncherInstanceRootRole"
+                    }
+                ]
+            }
+        },
+        "ClusterLauncherInstance": {
+            "Type": "AWS::EC2::Instance",
+            "Metadata": {
+                "AWS::CloudFormation::Init": {
+                    "config": {
+                        "files": {}
+                    }
+                }
+            },
+            "Properties": {
+                "NetworkInterfaces": [
+                    {
+                        "NetworkInterfaceId": {
+                            "Ref": "ClusterLauncherInterface"
+                        },
+                        "DeviceIndex": "0"
+                    }
+                ],
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "ClusterLauncherAMI",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },
+                "IamInstanceProfile": {
+                    "Ref": "ClusterLauncherProfile"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "ClusterLauncher Instance (Public Subnet)"
+                    }
+                ],
+                "InstanceType": {
+                    "Ref": "ClusterLauncherType"
+                },
+
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash ",
+                                "\n",
+                                "mkdir -p /home/ec2-user/cloudera/",
+                                "\n",
+                                "wget https://s3.amazonaws.com/",
+                                {
+                                    "Ref": "BuildBucket"
+                                },
+                                "/scripts/download.sh --output-document=/home/ec2-user/cloudera/download.sh ",
+                                "\n",
+                                "wget https://s3.amazonaws.com/",
+                                {
+                                    "Ref": "BuildBucket"
+                                },
+                                "/scripts/cfn-replace.sh --output-document=/home/ec2-user/cloudera/cfn-replace.sh ",
+                                "\n",
+                                "wget https://s3.amazonaws.com/",
+                                {
+                                    "Ref": "BuildBucket"
+                                },
+                                "/scripts/cleanup.sh --output-document=/home/ec2-user/cloudera/cleanup.sh ",
+                                "\n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "SUBNETID-CFN-REPLACE",
+                                "=",
+                                {
+                                    "Ref": "DMZSubnet"
+                                },
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "SECURITYGROUPIDS-CFN-REPLACE",
+                                "=",
+                                {
+                                    "Ref": "ClusterLauncherSecurityGroup"
+                                },
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "KEYNAME-CFN-REPLACE",
+                                "=",
+                                {
+                                    "Ref": "KeyName"
+                                },
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "AMI-CFN-REPLACE",
+                                "=",
+                                {
+                                    "Fn::FindInMap": [
+                                        "ClusterLauncherAMI",
+                                        {
+                                            "Ref": "AWS::Region"
+                                        },
+                                        "AMI"
+                                    ]
+                                },
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "MANAGER-TYPE-CFN-REPLACE",
+                                "=",
+                                {
+                                    "Ref": "ClusterManagerType"
+                                },
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "MASTER-TYPE-CFN-REPLACE",
+                                "=",
+                                {
+                                    "Ref": "ClusterMasterType"
+                                },
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "WORKER-TYPE-CFN-REPLACE",
+                                "=",
+                                {
+                                    "Ref": "ClusterWorkerType"
+                                },
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "MASTER-COUNT-CFN-REPLACE",
+                                "=",
+                                {
+                                    "Ref": "ClusterMasterCount"
+                                },
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "WORKER-COUNT-CFN-REPLACE",
+                                "=",
+                                {
+                                    "Ref": "ClusterWorkerCount"
+                                },
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
+                                "HADOOPINSTANCE-TYPE-CFN-REPLACE",
+                                "=",
+                                "m3.2xlarge",
+                                " /home/ec2-user/cloudera/download.sh \n",
+                                "/bin/sh /home/ec2-user/cloudera/download.sh",
+                                " -b ",
+                                {
+                                    "Ref": "BuildBucket"
+                                },
+                                "\n",
+                                "/bin/sh /home/ec2-user/cloudera/cleanup.sh \n",
+                                "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                                "\"Reason\" : \"The AWS-Cloudera Cluster Launcher is ready.\",",
+                                "\"UniqueId\" : \"ClusterLauncher Complete\",",
+                                "\"Data\" : \"Done\"}' ",
+                                "\"",
+                                {
+                                    "Ref": "WebServerWaitHandle"
+                                },
+                                "\"\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "WebServerWaitHandle": {
+            "Type": "AWS::CloudFormation::WaitConditionHandle"
+        },
+        "WebServerWaitCondition": {
+            "Type": "AWS::CloudFormation::WaitCondition",
+            "DependsOn": "ClusterLauncherInstance",
+            "Properties": {
+                "Handle": {
+                    "Ref": "WebServerWaitHandle"
+                },
+                "Timeout": "9000"
+            }
+        }
+    }
+}
