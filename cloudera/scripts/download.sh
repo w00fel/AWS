@@ -1,73 +1,65 @@
 #!/bin/bash
 
-usage() {
-cat <<EOF
-    Usage: $0 [options]
-        -h print usage
-        -b S3 BuildBucket that contains config/scripts/templates/media
-EOF
-    exit 1
-}
-
-# ------------------------------------------------------------------
-# Read all inputs
-# ------------------------------------------------------------------
-
-while getopts ":h:b:" o; do
-    case "${o}" in
-        h) usage && exit 0
-                ;;
-        b) BUILDBUCKET=${OPTARG}
-                ;;
-        *) usage
-                ;;
-    esac
-done
-
+#
+# Download/configure everything needed for installing Cloudera CDH.
+#
 VERSION=1.5.0
-BUILDBUCKET=$(echo ${BUILDBUCKET} | sed 's/"//g')
 
-# ------------------------------------------------------------------
-# Download everything needed for installing Cloudera
-# ------------------------------------------------------------------
+USERNAME=ec2-user
+USERHOME=/home/${USERHOME}
+CLOUDERA=${USERHOME}/cloudera
 
-# first update time
+AMAZON=https://s3.amazonaws.com
+GITHUB=https://raw.githubusercontent.com/w00fel/AWS/master
+IDENTITY=http://169.254.169.254/latest/dynamic/instance-identity/document
+
+#
+# Update time
+#
 yum -y install ntp
 service ntpd start
 ntpdate -u 0.amazon.pool.ntp.org
 
-mkdir -p /home/ec2-user/cloudera/cloudera-director-client-${VERSION}
-mkdir -p /home/ec2-user/cloudera/cloudera-director-server-${VERSION}
-mkdir -p /home/ec2-user/cloudera/aws
+#
+# Get cloudera director files.
+#
+mkdir -p ${CLOUDERA}/cloudera-director-client-${VERSION}
+mkdir -p ${CLOUDERA}/cloudera-director-server-${VERSION}
+mkdir -p ${CLOUDERA}/aws
 
-LAUNCHPAD_CLI_ZIP=cloudera-director-client-${VERSION}-director${VERSION}.tar.gz
+LAUNCHPAD_CLIENT_ZIP=cloudera-director-client-${VERSION}-director${VERSION}.tar.gz
 LAUNCHPAD_SERVER_ZIP=cloudera-director-server-${VERSION}-director${VERSION}.tar.gz
 
-for LAUNCHPAD_ZIP in ${LAUNCHPAD_CLI_ZIP} ${LAUNCHPAD_SERVER_ZIP}
+for LAUNCHPAD_ZIP in ${LAUNCHPAD_CLIENT_ZIP} ${LAUNCHPAD_SERVER_ZIP}
 do
-    wget https://s3.amazonaws.com/${BUILDBUCKET}/media/${LAUNCHPAD_ZIP} --output-document=/home/ec2-user/cloudera/${LAUNCHPAD_ZIP}
+    wget ${GITHUB}/cloudera/media/${LAUNCHPAD_ZIP} --output-document=${CLOUDERA}/${LAUNCHPAD_ZIP}
 done
 
-wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --output-document=/home/ec2-user/cloudera/aws/awscli-bundle.zip
-wget https://s3.amazonaws.com/${BUILDBUCKET}/media/jq --output-document=/home/ec2-user/cloudera/aws/jq
+tar xvf ${CLOUDERA}/${LAUNCHPAD_CLIENT_ZIP} -C ${CLOUDERA}/cloudera-director-client-${VERSION} --strip-components=1
+tar xvf ${CLOUDERA}/${LAUNCHPAD_SERVER_ZIP} -C ${CLOUDERA}/cloudera-director-server-${VERSION} --strip-components=1
 
-tar xvf /home/ec2-user/cloudera/${LAUNCHPAD_CLI_ZIP} -C /home/ec2-user/cloudera/cloudera-director-client-${VERSION} --strip-components=1
-tar xvf /home/ec2-user/cloudera/${LAUNCHPAD_SERVER_ZIP} -C /home/ec2-user/cloudera/cloudera-director-server-${VERSION} --strip-components=1
+#
+# Get default region and instance id.
+#
+wget ${AMAZON}/aws-cli/awscli-bundle.zip --output-document=${CLOUDERA}/aws/awscli-bundle.zip
+wget ${GITHUB}/cloudera/media/jq --output-document=${CLOUDERA}/aws/jq
 
-cd /home/ec2-user/cloudera/aws
-unzip awscli-bundle.zip
-./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
-chmod 755 ./jq
-export JQ_COMMAND=/home/ec2-user/cloudera/aws/jq
+#cd ${CLOUDERA}/aws
+unzip ${CLOUDERA}/aws/awscli-bundle.zip -d ${CLOUDERA}/aws
+${CLOUDERA}/aws/awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
+chmod 755 ${CLOUDERA}/aws/jq
+export JQ_CMD=${CLOUDERA}/aws/jq
 
-AWS_CLUSTER_CONF=/home/ec2-user/cloudera/cloudera-director-client-${VERSION}/aws.cluster.conf
+export AWS_DEF_REGION=$(curl -s ${IDENTITY} | ${JQ_CMD} '.region'  | sed 's/^"\(.*\)"$/\1/')
+export AWS_INSTANCEID=$(curl -s ${IDENTITY} | ${JQ_CMD} '.instanceId' | sed 's/^"\(.*\)"$/\1/' )
 
-wget https://raw.githubusercontent.com/w00fel/AWS/master/cloudera/config/aws.cluster.conf.${VERSION} --output-document=${AWS_CLUSTER_CONF}
+#
+# Customize aws.cluster.conf.
+#
+AWS_CLUSTER_CONF=${CLOUDERA}/cloudera-director-client-${VERSION}/aws.cluster.conf
+wget ${GITHUB}/cloudera/config/aws.cluster.conf.${VERSION} --output-document=${AWS_CLUSTER_CONF}
 
-export AWS_DEFAULT_REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | ${JQ_COMMAND} '.region'  | sed 's/^"\(.*\)"$/\1/')
-export AWS_INSTANCEID=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | ${JQ_COMMAND} '.instanceId' | sed 's/^"\(.*\)"$/\1/' )
-
-cd /home/ec2-user/cloudera/cloudera-director-client-${VERSION}
+#cd ${CLOUDERA}/cloudera-director-client-${VERSION}
 
 export AWS_SUBNETID=SUBNETID-CFN-REPLACE
 export AWS_SECURITYGROUPIDS=SECURITYGROUPIDS-CFN-REPLACE
@@ -80,9 +72,7 @@ export AWS_CDH_MANAGER_INSTANCE_TYPE=MANAGER-TYPE-CFN-REPLACE
 export AWS_CDH_MASTER_INSTANCE_TYPE=MASTER-TYPE-CFN-REPLACE
 export AWS_CDH_WORKER_INSTANCE_TYPE=WORKER-TYPE-CFN-REPLACE
 
-# Replace these via script variables
-sed -i "s/region-REPLACE-ME/${AWS_DEFAULT_REGION}/g" ${AWS_CLUSTER_CONF}
-sed -i "s/placementGroup-REPLACE-ME/${AWS_PLACEMENT_GROUP_NAME}/g" ${AWS_CLUSTER_CONF}
+sed -i "s/region-REPLACE-ME/${AWS_DEF_REGION}/g" ${AWS_CLUSTER_CONF}
 sed -i "s/instanceNamePrefix.*/instanceNamePrefix: cloudera-director-${AWS_INSTANCEID}/g" ${AWS_CLUSTER_CONF}
 
 # Replace these via CloudFormation User-Data
@@ -97,4 +87,7 @@ sed -i "s/worker-type-REPLACE-ME/${AWS_CDH_WORKER_INSTANCE_TYPE}/g" ${AWS_CLUSTE
 sed -i "s/master-count-REPLACE-ME/${AWS_CDH_MASTER_COUNT}/g" ${AWS_CLUSTER_CONF}
 sed -i "s/worker-count-REPLACE-ME/${AWS_CDH_WORKER_COUNT}/g" ${AWS_CLUSTER_CONF}
 
-chown -R ec2-user /home/ec2-user/cloudera
+wget ${GITHUB}/keys/${AWS_PRIVATEKEYNAME} --output-document=${USERHOME}/${AWS_PRIVATEKEYNAME}
+chmod 400 ${USERHOME}/${AWS_PRIVATEKEYNAME}
+
+chown -R ${USERNAME} ${CLOUDERA}
