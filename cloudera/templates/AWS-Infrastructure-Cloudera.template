@@ -15,7 +15,7 @@
             "AllowedPattern": "[a-zA-Z0-9]+\\..+"
         },
         "AccessCIDR": {
-            "Description": "IP CIDR from which you are likely to SSH into the ClusterLauncher instance.",
+            "Description": "IP CIDR from which you are likely to SSH into the CDH Launcher instance.",
             "Type": "String",
             "MinLength": "9",
             "MaxLength": "18",
@@ -24,12 +24,12 @@
             "ConstraintDescription": "must be a valid CIDR range of the form x.x.x.x/x."
         },
         "KeyName": {
-            "Description": "Name of an existing EC2 KeyPair. ClusterLauncher instance will launch with this KeyPair.",
+            "Description": "Name of an existing EC2 KeyPair. CDH Launcher instance will launch with this KeyPair.",
             "Type": "AWS::EC2::KeyPair::KeyName",
             "Default": "Hadoop"
         },
         "ClusterLauncherType": {
-            "Description": "Amazon EC2 instance type for the Cluster Launcher Instance.",
+            "Description": "Amazon EC2 instance type for the CDH Launcher Instance.",
             "Type": "String",
             "Default": "t2.large",
             "AllowedValues": [
@@ -39,7 +39,7 @@
             ]
         },
         "ClusterManagerType": {
-            "Description": "Amazon EC2 instance type for the Cluster Manager Instance.",
+            "Description": "Amazon EC2 instance type for the CDH Manager Instance.",
             "Type": "String",
             "Default": "m4.xlarge",
             "AllowedValues": [
@@ -49,7 +49,7 @@
             ]
         },
         "ClusterMasterType": {
-            "Description": "Amazon EC2 instance type for the Cluster Master Instance.",
+            "Description": "Amazon EC2 instance type for the CDH Master Instance.",
             "Type": "String",
             "Default": "m4.large",
             "AllowedValues": [
@@ -59,7 +59,7 @@
             ]
         },
         "ClusterWorkerType": {
-            "Description": "Amazon EC2 instance type for the Cluster Worker Instances.",
+            "Description": "Amazon EC2 instance type for the CDH Worker Instances.",
             "Type": "String",
             "Default": "m4.large",
             "AllowedValues": [
@@ -70,7 +70,7 @@
             ]
         },
         "ClusterMasterCount": {
-            "Description": "The number of Cluster Master Instances to start.",
+            "Description": "The number of CDH Cluster Master Instances to start.",
             "Type": "String",
             "Default": "1",
             "MinLength": "1",
@@ -78,7 +78,7 @@
             "AllowedPattern": "[0-9]"
         },
         "ClusterWorkerCount": {
-            "Description": "The number of Cluster Worker Instances to start.",
+            "Description": "The number of CDH Cluster Worker Instances to start.",
             "Type": "String",
             "Default": "3",
             "MinLength": "1",
@@ -211,8 +211,8 @@
                 "EnableDnsSupport": "true",
                 "Tags": [
                     {
-                        "Key": "Application",
-                        "Value": "Cloudera Hadoop"
+                        "Key": "Name",
+                        "Value": "CDH Cluster"
                     }
                 ]
             }
@@ -253,12 +253,8 @@
                 },
                 "Tags": [
                     {
-                        "Key": "Application",
-                        "Value": "ClusterLauncher (Cloudera)"
-                    },
-                    {
-                        "Key": "Network",
-                        "Value": "Public"
+                        "Key": "Name",
+                        "Value": "CDH Cluster"
                     }
                 ],
                 "AvailabilityZone": {
@@ -274,7 +270,7 @@
         "ClusterLauncherSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
-                "GroupDescription": "ClusterLauncher Instance security group",
+                "GroupDescription": "CDH Cluster security sroup",
                 "VpcId": {
                     "Ref": "VPC"
                 },
@@ -321,6 +317,12 @@
                         "ToPort": "65535",
                         "CidrIp": "0.0.0.0/0"
                     }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "CDH Cluster"
+                    }
                 ]
             }
         },
@@ -336,19 +338,13 @@
                 "SubnetId": {
                     "Ref": "DMZSubnet"
                 },
-                "Description": "Interface for ClusterLauncher Instance",
+                "Description": "Interface for Cluster Launcher Instance",
                 "GroupSet": [
                     {
                         "Ref": "ClusterLauncherSecurityGroup"
                     }
                 ],
-                "SourceDestCheck": "true",
-                "Tags": [
-                    {
-                        "Key": "Network",
-                        "Value": "Public (Cloudera)"
-                    }
-                ]
+                "SourceDestCheck": "true"
             }
         },
         "AssociateClusterLauncherEIP": {
@@ -370,13 +366,7 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
-                },
-                "Tags": [
-                    {
-                        "Key": "Application",
-                        "Value": "DMZ"
-                    }
-                ]
+                }
             }
         },
         "PublicRoute": {
@@ -396,13 +386,7 @@
             "Properties": {
                 "VpcId": {
                     "Ref": "VPC"
-                },
-                "Tags": [
-                    {
-                        "Key": "Network",
-                        "Value": "Public"
-                    }
-                ]
+                }
             }
         },
         "PublicSubnetRouteTableAssociation": {
@@ -655,7 +639,7 @@
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": "Cluster Launcher Instance"
+                        "Value": "CDH Cluster Launcher"
                     },
                     {
                         "Key": "group",
