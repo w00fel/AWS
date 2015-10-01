@@ -12,4 +12,4 @@ CLOUDERA=${USERHOME}/cloudera
 DIRECTORDIR=${CLOUDERA}/cloudera-director-client-${VERSION}
 AWS_CLUSTER_CONF=${DIRECTORDIR}/aws.cluster.conf
 
-${DIRECTORDIR}/bin/cloudera-director bootstrap ${AWS_CLUSTER_CONF}
+${DIRECTORDIR}/bin/cloudera-director bootstrap ${AWS_CLUSTER_CONF} --lp.terminate.assumeYes=true
