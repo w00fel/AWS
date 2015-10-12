@@ -1,98 +1,149 @@
 {
-    "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "AWS Infrastructure Deployment for Cloudera Hadoop (RHEL 6.5)",
-    "Parameters": {
-        "ClusterLauncherType": {
-            "Description": "EC2 instance type for the CDH Launcher Instance.",
-            "Type": "String",
-            "Default": "t2.large",
-            "AllowedValues": [
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "AWS Infrastructure Deployment for Cloudera CDH",
+    "Parameters" : {
+        "BuildBucket" : {
+            "Description" : "S3 bucket containing templates and scripts. [Don't change]",
+            "Type" : "String",
+            "Default" : "cleo-cdh-aws"
+        },
+
+        "Cluster" : {
+            "Description" : "Cluster Name.",
+            "Type" : "String",
+            "Default" : "CDH-Cluster-AWS"
+        },
+
+        "ClusterConfig" : {
+            "Description" : "Cluster configuration file name.",
+            "Type" : "String",
+            "Default" : "aws.cluster.conf"
+        },
+
+        "ClusterDirectorType" : {
+            "Description" : "EC2 instance type for the CDH Director.",
+            "Type" : "String",
+            "Default" : "t2.large",
+            "AllowedValues" : [
                 "t2.large",
                 "m4.large",
                 "m4.xlarge"
             ]
         },
-        "ClusterManagerType": {
-            "Description": "EC2 instance type for the CDH Manager Instance.",
-            "Type": "String",
-            "Default": "m4.xlarge",
-            "AllowedValues": [
+
+        "ClusterManagerType" : {
+            "Description" : "EC2 instance type for the CDH Manager.",
+            "Type" : "String",
+            "Default" : "m4.xlarge",
+            "AllowedValues" : [
                 "t2.large",
                 "m4.large",
                 "m4.xlarge"
             ]
         },
-        "ClusterMasterType": {
-            "Description": "EC2 instance type for the CDH Master Instance.",
-            "Type": "String",
-            "Default": "m4.large",
-            "AllowedValues": [
+
+        "ClusterMasterType" : {
+            "Description" : "EC2 instance type for the CDH Master.",
+            "Type" : "String",
+            "Default" : "m4.large",
+            "AllowedValues" : [
                 "t2.large",
                 "m4.large",
                 "m4.xlarge"
             ]
         },
-        "ClusterWorkerType": {
-            "Description": "EC2 instance type for the CDH Worker Instances.",
-            "Type": "String",
-            "Default": "m4.large",
-            "AllowedValues": [
+
+        "ClusterWorkerType" : {
+            "Description" : "EC2 instance type for the CDH Worker.",
+            "Type" : "String",
+            "Default" : "m4.large",
+            "AllowedValues" : [
                 "t2.large",
                 "m4.large",
                 "m4.xlarge",
                 "i2.xlarge"
             ]
         },
-        "ClusterMasterCount": {
-            "Description": "The number of CDH Cluster Master Instances to start.",
-            "Type": "String",
-            "Default": "1",
-            "MinLength": "1",
-            "MaxLength": "1",
-            "AllowedPattern": "[0-9]"
+
+        "ClusterWorkerCount" : {
+            "Description" : "The number of CDH Worker instances to start.",
+            "Type" : "String",
+            "Default" : "3",
+            "MinLength" : "1",
+            "MaxLength" : "2",
+            "AllowedPattern" : "[0-9]+"
         },
-        "ClusterWorkerCount": {
-            "Description": "The number of CDH Cluster Worker Instances to start.",
-            "Type": "String",
-            "Default": "3",
-            "MinLength": "1",
-            "MaxLength": "2",
-            "AllowedPattern": "[0-9]+"
+
+        "HarmonyServerType" : {
+            "Description" : "EC2 instance type for the Harmony Server.",
+            "Type" : "String",
+            "Default" : "t2.large",
+            "AllowedValues" : [
+                "t2.large",
+                "m4.large"
+            ]
         },
-        "KeyName": {
-            "Description": "Name of an existing EC2 KeyPair.",
-            "Type": "AWS::EC2::KeyPair::KeyName"
+
+        "KeyName" : {
+            "Description" : "Name of an existing EC2 KeyPair.",
+            "Type" : "AWS::EC2::KeyPair::KeyName"
         },
-        "SSHLocation": {
-            "Description": "IP CIDR from which you access the CDH Launcher instance.",
-            "Type": "String",
-            "MinLength": "9",
-            "MaxLength": "18",
-            "Default": "0.0.0.0/0",
-            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
-            "ConstraintDescription": "must be a valid CIDR range of the form x.x.x.x/x."
+
+        "PublicDNSDomain" : {
+            "Description" : "Domain suffix of the Public Hosted Route53 Zone.",
+            "Type" : "String",
+            "Default" : "aws.woofel.net"
+        },
+
+        "PublicDNSZone" : {
+            "Description" : "Zone ID of the Public Hosted Route53 Zone.",
+            "Type" : "String",
+            "Default" : "ZD3Q4N42MFVRR"
+        },
+
+        "SSHLocation" : {
+            "Description" : "IP CIDR from which you access the Cluster instances.",
+            "Type" : "String",
+            "MinLength" : "9",
+            "MaxLength" : "18",
+            "Default" : "0.0.0.0/0",
+            "AllowedPattern" : "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription" : "must be a valid CIDR range of the form x.x.x.x/x."
         }
     },
 
-    "Mappings": {
+    "Mappings" : {
         "SubnetConfig" : {
             "VPC"    : { "CIDR" : "10.0.0.0/16" },
             "Public" : { "CIDR" : "10.0.0.0/24" }
         },
-        "ClusterLauncherAMI": {
-            "us-east-1":      { "AMI": "ami-00a11e68" },
-            "us-west-1":      { "AMI": "ami-4b3f350e" },
-            "us-west-2":      { "AMI": "ami-11125e21" },
-            "eu-west-1":      { "AMI": "ami-04a00d73" },
-            "eu-central-1":   { "AMI": "ami-008ebf1d" },
-            "ap-northeast-1": { "AMI": "ami-abb682aa" },
-            "ap-southeast-2": { "AMI": "ami-0d254837" },
-            "ap-southeast-1": { "AMI": "ami-ce1f399c" },
-            "sa-east-1":      { "AMI": "ami-df06b3c2" }
+        "RedHatAMI" : {
+            "Description" :    "RHEL-6.5_GA_HVM-20140929-x86_64-11-Hourly2-GP2",
+            "us-east-1" :      { "AMI" : "ami-00a11e68" },
+            "us-west-1" :      { "AMI" : "ami-4b3f350e" },
+            "us-west-2" :      { "AMI" : "ami-11125e21" },
+            "eu-west-1" :      { "AMI" : "ami-04a00d73" },
+            "eu-central-1" :   { "AMI" : "ami-008ebf1d" },
+            "ap-northeast-1" : { "AMI" : "ami-abb682aa" },
+            "ap-southeast-1" : { "AMI" : "ami-ce1f399c" },
+            "ap-southeast-2" : { "AMI" : "ami-0d254837" },
+            "sa-east-1" :      { "AMI" : "ami-df06b3c2" }
+        },
+        "UbuntuAMI" : {
+            "Description" :    "Ubuntu Server 14.04 LTS (HVM), SSD Volume Type",
+            "us-east-1" :      { "AMI" : "ami-d05e75b8" },
+            "us-west-1" :      { "AMI" : "ami-df6a8b9b" },
+            "us-west-2" :      { "AMI" : "ami-5189a661" },
+            "eu-west-1" :      { "AMI" : "ami-47a23a30" },
+            "eu-central-1" :   { "AMI" : "ami-accff2b1" },
+            "ap-northeast-1" : { "AMI" : "ami-936d9d93" },
+            "ap-southeast-1" : { "AMI" : "ami-96f1c1c4" },
+            "ap-southeast-2" : { "AMI" : "ami-69631053" },
+            "sa-east-1" :      { "AMI" : "ami-4d883350" }
         }
     },
 
-    "Resources": {
+    "Resources" : {
         "VPC" : {
             "Type" : "AWS::EC2::VPC",
             "Properties" : {
@@ -261,7 +312,7 @@
                     },
                     {
                         "IpProtocol" : "tcp",
-                        "FromPort"   : "7000",
+                        "FromPort"   : "5000",
                         "ToPort"     : "65535",
                         "CidrIp"     : "0.0.0.0/0"
                     }
@@ -286,315 +337,328 @@
             }
         },
 
-        "ClusterLauncherInstanceRole": {
-            "Type": "AWS::IAM::Role",
-            "Properties": {
-                "AssumeRolePolicyDocument": {
-                    "Version": "2012-10-17",
-                    "Statement": [{
-                        "Effect": "Allow",
-                        "Principal": { "Service": [ "ec2.amazonaws.com" ] },
-                        "Action": [ "sts:AssumeRole" ]
-                    }]
+        "PrivateDNSZone" : {
+            "Type" : "AWS::Route53::HostedZone",
+            "Properties" : {
+                "HostedZoneConfig" : {
+                    "Comment" : { "Fn::Join": [ " ", [
+                        "Private Zone for CDH Cluster VPC", { "Ref" : "VPC" },
+                         "Region", { "Ref" : "AWS::Region" }
+                    ]]}
                 },
-                "Path": "/",
-                "Policies": [ {
-                    "PolicyName": "root",
-                    "PolicyDocument": {
-                        "Version": "2012-10-17",
-                        "Statement": [
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "s3:*",
-                                    "ec2:Describe*",
-                                    "ec2:AttachNetworkInterface",
-                                    "ec2:AttachVolume",
-                                    "ec2:CreateTags",
-                                    "ec2:CreateVolume",
-                                    "ec2:DeleteVolume",
-                                    "ec2:RunInstances",
-                                    "ec2:StartInstances",
-                                    "ec2:CreateSecurityGroup",
-                                    "ec2:CreatePlacementGroup",
-                                    "ec2:CreateSnapshot",
-                                    "*"
-                                ],
-                                "Resource": "*"
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "cloudformation:CreateStack",
-                                    "cloudformation:DeleteStack",
-                                    "cloudformation:DescribeStack",
-                                    "cloudformation:EstimateTemplateCost",
-                                    "cloudformation:ValidateTemplate",
-                                    "cloudformation:DescribeStackEvents",
-                                    "cloudformation:DescribeStackResource",
-                                    "cloudformation:DescribeStackResources",
-                                    "cloudformation:DescribeStacks"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "iam:CreateRole"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "iam:PutRolePolicy"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "iam:CreateInstanceProfile"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "iam:AddRoleToInstanceProfile"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "iam:PassRole"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "ec2:RevokeSecurityGroupEgress"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "ec2:AuthorizeSecurityGroupEgress"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "ec2:AuthorizeSecurityGroupIngress"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "ec2:CreateNetworkInterface"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "ec2:ModifyNetworkInterfaceAttribute"
-                                ],
-                                "Resource": [
-                                    "*"
-                                ]
-                            }
-                        ]
-                    }
+                "Name" : { "Ref" : "PublicDNSDomain" },
+                "VPCs" : [{
+                    "VPCId"     : { "Ref" : "VPC" },
+                    "VPCRegion" : { "Ref" : "AWS::Region" }
                 }]
             }
         },
 
-        "ClusterLauncherProfile": {
-            "Type": "AWS::IAM::InstanceProfile",
-            "Properties": {
-                "Path": "/",
-                "Roles": [ { "Ref": "ClusterLauncherInstanceRole" } ]
+        "ClusterDirectorUser" : {
+            "Type" : "AWS::IAM::User"
+        },
+
+        "ClusterDirectorAccessKey" : {
+            "Type" : "AWS::IAM::AccessKey",
+            "Properties" : {
+                "UserName" : { "Ref" : "ClusterDirectorUser" }
             }
         },
 
-        "ClusterLauncherInstance": {
-            "Type": "AWS::EC2::Instance",
-            "Metadata": {
-                "AWS::CloudFormation::Init": { "config": { "files": {} } }
-            },
-            "Properties": {
-                "InstanceType" : { "Ref" : "ClusterLauncherType" },
-                "IamInstanceProfile": { "Ref": "ClusterLauncherProfile" },
+        "ClusterDirectorRole" : {
+            "Type" : "AWS::IAM::Role",
+            "Properties" : {
+                "AssumeRolePolicyDocument" : {
+                    "Version" : "2012-10-17",
+                    "Statement" : [{
+                        "Effect" : "Allow",
+                        "Principal" : { "Service": [ "ec2.amazonaws.com" ] },
+                        "Action" : [ "sts:AssumeRole" ]
+                    }]
+                }
+            }
+        },
+
+        "ClusterWorkerRole" : {
+            "Type" : "AWS::IAM::Role",
+            "Properties" : {
+                "AssumeRolePolicyDocument" : {
+                    "Version" : "2012-10-17",
+                    "Statement" : [{
+                        "Effect" : "Allow",
+                        "Principal" : { "Service": [ "ec2.amazonaws.com" ] },
+                        "Action" : [ "sts:AssumeRole" ]
+                    }]
+                }
+            }
+        },
+
+        "ClusterIAMPolicy" : {
+            "Type": "AWS::IAM::Policy",
+            "Properties" : {
+                "PolicyName" : "ClusterIAM",
+                "PolicyDocument" : {
+                    "Version" : "2012-10-17",
+                    "Statement" : [
+                        {
+                            "Effect" : "Allow",
+                            "Action" : [
+                                "iam:GetInstanceProfile",
+                                "iam:PassRole"
+                            ],
+                            "Resource" : [
+                                "*"
+                            ]
+                        }
+                    ]
+                },
+                "Roles" : [
+                    { "Ref" : "ClusterDirectorRole" },
+                    { "Ref" : "ClusterWorkerRole" }
+                ],
+                "Users" : [
+                    { "Ref" : "ClusterDirectorUser" }
+                ]
+            }
+        },
+
+        "ClusterCreatePolicy" : {
+            "Type" : "AWS::IAM::Policy",
+            "Properties" : {
+                "PolicyName" : "ClusterCreate",
+                "PolicyDocument" : {
+                    "Version" : "2012-10-17",
+                    "Statement" : [
+                        {
+                            "Effect" : "Allow",
+                            "Action" : [
+                                "cloudformation:Describe*",
+                                "ec2:CreateTags",
+                                "ec2:DescribeAvailabilityZones",
+                                "ec2:DescribeImages",
+                                "ec2:DescribeInstanceStatus",
+                                "ec2:DescribeInstances",
+                                "ec2:DescribeKeyPairs",
+                                "ec2:DescribePlacementGroups",
+                                "ec2:DescribeRegions",
+                                "ec2:DescribeSecurityGroups",
+                                "ec2:DescribeSubnets",
+                                "ec2:RunInstances",
+                                "ec2:TerminateInstances",
+                                "rds:CreateDBInstance",
+                                "rds:DeleteDBInstance",
+                                "rds:DescribeDBInstances",
+                                "rds:DescribeDBSecurityGroups",
+                                "sts:DecodeAuthorizationMessage",
+                                "s3:GetObject"
+                            ],
+                            "Resource" : [
+                                "*"
+                            ]
+                        }
+                    ]
+                },
+                "Roles" : [
+                    { "Ref" : "ClusterDirectorRole" }
+                ],
+                "Users": [
+                    { "Ref" : "ClusterDirectorUser" }
+                ]
+            }
+        },
+
+        "ClusterRoute53Policy" : {
+            "Type" : "AWS::IAM::Policy",
+            "Properties" : {
+                "PolicyName" : "ClusterRoute53",
+                "PolicyDocument" : {
+                    "Version" : "2012-10-17",
+                    "Statement" : [
+                        {
+                            "Effect" : "Allow",
+                            "Action" : [
+                                "route53:GetHostedZone",
+                                "route53:ListHostedZones",
+                                "route53:ListResourceRecordSets",
+                                "route53:ChangeResourceRecordSets"
+                            ],
+                            "Resource" : [
+                                "arn:aws:route53:::hostedzone/*"
+                            ]
+                        }
+                    ]
+                },
+                "Roles" : [
+                    { "Ref" : "ClusterDirectorRole" },
+                    { "Ref" : "ClusterWorkerRole" }
+                ],
+                "Users" : [
+                    { "Ref" : "ClusterDirectorUser" }
+                ]
+            }
+        },
+
+        "ClusterDirectorInstanceProfile" : {
+            "Type" : "AWS::IAM::InstanceProfile",
+            "Properties" : {
+                "Roles" : [
+                    { "Ref" : "ClusterDirectorRole" }
+                ]
+            }
+        },
+
+        "ClusterWorkerInstanceProfile" : {
+            "Type" : "AWS::IAM::InstanceProfile",
+            "Properties" : {
+                "Roles" : [
+                    { "Ref" : "ClusterWorkerRole" }
+                ]
+            }
+        },
+
+        "HarmonyServerInstance" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "InstanceType" : { "Ref" : "HarmonyServerType" },
                 "KeyName"  : { "Ref" : "KeyName" },
-                "ImageId"  : { "Fn::FindInMap": [ "ClusterLauncherAMI", { "Ref": "AWS::Region" }, "AMI" ] },
+                "ImageId"  : { "Fn::FindInMap": [ "UbuntuAMI", { "Ref" : "AWS::Region" }, "AMI" ] },
                 "NetworkInterfaces" : [{
                     "GroupSet"                 : [{ "Ref" : "SecurityGroup" }],
-                    "SubnetId"                 : { "Ref" : "PublicSubnet" },
+                    "SubnetId"                 : {  "Ref" : "PublicSubnet" },
                     "AssociatePublicIpAddress" : "true",
                     "DeleteOnTermination"      : "true",
                     "DeviceIndex"              : "0"
                 }],
                 "Tags" : [
-                    { "Key" : "Name", "Value" : "CDH Cluster Launcher" },
-                    { "Key" : "group", "Value" : "launcher" }
-                ],
-                "UserData": {
-                    "Fn::Base64": { "Fn::Join": [ "", [
-                        "#!/bin/bash ",
-                        "\n",
-                        "mkdir -p /home/ec2-user/cloudera/",
-                        "\n",
-                        "wget -nv https://s3.amazonaws.com/cleo-cloudera-aws/scripts/download.sh ",
-                        "--output-document=/home/ec2-user/cloudera/download.sh ",
-                        "\n",
-                        "wget -nv https://s3.amazonaws.com/cleo-cloudera-aws/scripts/cfn-replace.sh ",
-                        "--output-document=/home/ec2-user/cloudera/cfn-replace.sh ",
-                        "\n",
-                        "wget -nv https://s3.amazonaws.com/cleo-cloudera-aws/scripts/bootstrap.sh ",
-                        "--output-document=/home/ec2-user/cloudera/bootstrap.sh ",
-                        "\n",
-                        "wget -nv https://s3.amazonaws.com/cleo-cloudera-aws/scripts/terminate.sh ",
-                        "--output-document=/home/ec2-user/cloudera/terminate.sh ",
-                        "\n",
-                        "wget -nv https://s3.amazonaws.com/cleo-cloudera-aws/scripts/cleanup.sh ",
-                        "--output-document=/home/ec2-user/cloudera/cleanup.sh ",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                        "SUBNETID-CFN-REPLACE",
-                        "=",
-                        {
-                            "Ref": "PublicSubnet"
-                        },
-                        " /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                        "SECURITYGROUPIDS-CFN-REPLACE",
-                        "=",
-                        {
-                            "Ref": "SecurityGroup"
-                        },
-                        " /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                        "KEYNAME-CFN-REPLACE",
-                        "=",
-                        {
-                            "Ref": "KeyName"
-                        },
-                        " /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                        "AMI-CFN-REPLACE",
-                        "=",
-                        {
-                            "Fn::FindInMap": [
-                                "ClusterLauncherAMI",
-                                {
-                                    "Ref": "AWS::Region"
-                                },
-                                "AMI"
-                            ]
-                        },
-                        " /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                        "MANAGER-TYPE-CFN-REPLACE",
-                        "=",
-                        {
-                            "Ref": "ClusterManagerType"
-                        },
-                        " /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                        "MASTER-TYPE-CFN-REPLACE",
-                        "=",
-                        {
-                            "Ref": "ClusterMasterType"
-                        },
-                        " /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                        "WORKER-TYPE-CFN-REPLACE",
-                        "=",
-                        {
-                            "Ref": "ClusterWorkerType"
-                        },
-                        " /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                        "MASTER-COUNT-CFN-REPLACE",
-                        "=",
-                        {
-                            "Ref": "ClusterMasterCount"
-                        },
-                        " /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cfn-replace.sh ",
-                        "WORKER-COUNT-CFN-REPLACE",
-                        "=",
-                        {
-                            "Ref": "ClusterWorkerCount"
-                        },
-                        " /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/download.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/cleanup.sh",
-                        "\n",
-                        "/bin/rm /home/ec2-user/cloudera/cleanup.sh",
-                        "\n",
-                        "/bin/sh /home/ec2-user/cloudera/bootstrap.sh",
-                        "\n",
-                        "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
-                        "\"Reason\" : \"The AWS-Cloudera Cluster Launcher is ready.\",",
-                        "\"UniqueId\" : \"Cluster Launcher Complete\",",
-                        "\"Data\" : \"Done\"}' ",
-                        "\"",
-                        {
-                            "Ref": "WebServerWaitHandle"
-                        },
-                        "\"\n"
-                    ]]}
-                }
+                    { "Key" : "Name", "Value" : "Harmony Server" },
+                    { "Key" : "group", "Value" : "harmony" }
+                ]
             }
         },
-        "WebServerWaitHandle": {
-            "Type": "AWS::CloudFormation::WaitConditionHandle"
+
+        "ClusterDirectorInstance" : {
+            "Type" : "AWS::EC2::Instance",
+            "Metadata" : {
+                "AWS::CloudFormation::Authentication" : { "S3AccessCreds" : {
+                    "type"        : "S3",
+                    "buckets"     : [ { "Ref" : "BuildBucket" } ],
+                    "accessKeyId" : { "Ref" : "ClusterDirectorAccessKey" },
+                    "secretKey"   : { "Fn::GetAtt" : ["ClusterDirectorAccessKey", "SecretAccessKey"] }
+                }},
+                "AWS::CloudFormation::Init" : { "config" : {
+                    "files" : {
+                        "/home/ubuntu/cloudera/aws.cluster.conf" : {
+                            "source" : { "Fn::Join" : [ "/", [
+                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, { "Ref" : "ClusterConfig" }
+                            ]]},
+                            "context" : {
+                                "cluster"       : { "Ref" : "Cluster" },
+                                "region"        : { "Ref" : "AWS::Region" },
+                                "subnet"        : { "Ref" : "PublicSubnet" },
+                                "keyName"       : { "Ref" : "KeyName" },
+                                "securityGroup" : { "Ref" : "SecurityGroup" },
+                                "publicDomain"  : { "Ref" : "PublicDNSDomain" },
+                                "publicZone"    : { "Ref" : "PublicDNSZone" },
+                                "privateZone"   : { "Ref" : "PrivateDNSZone" },
+                                "managerType"   : { "Ref" : "ClusterManagerType" },
+                                "masterType"    : { "Ref" : "ClusterMasterType" },
+                                "workerType"    : { "Ref" : "ClusterWorkerType" },
+                                "workerCount"   : { "Ref" : "ClusterWorkerCount" },
+                                "workerProfile" : { "Ref" : "ClusterWorkerInstanceProfile" },
+                                "clusterImage"  : { "Fn::FindInMap" : [ "RedHatAMI", { "Ref" : "AWS::Region" }, "AMI" ] }
+                            }
+                        },
+                        "/home/ubuntu/cloudera/bootstrap.py" : {
+                            "source" : { "Fn::Join" : [ "/", [
+                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, "bootstrap.py"
+                            ]]},
+                            "mode" : "000755"
+                        },
+                        "/home/ubuntu/cloudera/terminate.py" : {
+                            "source" : { "Fn::Join" : [ "/", [
+                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, "terminate.py"
+                            ]]},
+                            "context" : {
+                                "publicZone"    : { "Ref" : "PublicDNSZone" },
+                                "privateZone"   : { "Ref" : "PrivateDNSZone" }
+                            },
+                            "mode" : "000755"
+                        },
+                        "/home/ubuntu/.ssh/id_rsa" : {
+                            "source" : { "Fn::Join" : [ "/", [
+                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, "default.pem"
+                            ]]},
+                            "mode" : "000400"
+                        }
+                    },
+                    "packages" : {
+                        "apt" : {
+                            "default-jre" : []
+                        },
+                        "pip" : {
+                            "boto" : []
+                        }
+                    },
+                    "sources" : {
+                        "/home/ubuntu/cloudera/director-client" :
+                            "http://archive.cloudera.com/director/director/1/cloudera-director-client-latest.tar.gz",
+                        "/home/ubuntu/cloudera/director-server" :
+                            "http://archive.cloudera.com/director/director/1/cloudera-director-server-latest.tar.gz"
+                    }
+                }}
+            },
+            "Properties" : {
+                "InstanceType" : { "Ref" : "ClusterDirectorType" },
+                "IamInstanceProfile" : { "Ref" : "ClusterDirectorInstanceProfile" },
+                "KeyName"  : { "Ref" : "KeyName" },
+                "ImageId"  : { "Fn::FindInMap" : [ "UbuntuAMI", { "Ref" : "AWS::Region" }, "AMI" ] },
+                "NetworkInterfaces" : [{
+                    "GroupSet"                 : [{ "Ref" : "SecurityGroup" }],
+                    "SubnetId"                 : {  "Ref" : "PublicSubnet" },
+                    "AssociatePublicIpAddress" : "true",
+                    "DeleteOnTermination"      : "true",
+                    "DeviceIndex"              : "0"
+                }],
+                "Tags" : [
+                    { "Key" : "Name",  "Value" : "CDH Cluster Director" },
+                    { "Key" : "group", "Value" : "director" }
+                ],
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "", [
+                    "#!/bin/bash -ex\n",
+                    "apt-get update\n",
+                    "apt-get -y install python-setuptools\n",
+                    "apt-get -y install python-pip\n",
+                    "pip install awscli\n",
+                    "easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                    "#\n",
+                    "cfn-init --stack ", { "Ref" : "AWS::StackName" },
+                    "    --resource ClusterDirectorInstance",
+                    "    --region ", { "Ref" : "AWS::Region" }, "\n",
+                    "#\n",
+                    "mv /home/ubuntu/cloudera/director-client/*/* /home/ubuntu/cloudera/director-client\n",
+                    "rm -rf /home/ubuntu/cloudera/director-client/cloudera-director-*\n",
+                    "mv /home/ubuntu/cloudera/director-server/*/* /home/ubuntu/cloudera/director-server\n",
+                    "rm -rf /home/ubuntu/cloudera/director-server/cloudera-director-*\n",
+                    "chown -R ubuntu:ubuntu /home/ubuntu\n",
+                    "sudo -u ubuntu /home/ubuntu/cloudera/director-server/bin/start\n",
+                    "#\n",
+                    "cfn-signal --exit-code 0 '", { "Ref" : "WaitHandle" }, "'\n"
+                ]]}}
+            }
         },
-        "WebServerWaitCondition": {
-            "Type": "AWS::CloudFormation::WaitCondition",
-            "DependsOn": "ClusterLauncherInstance",
-            "Properties": {
-                "Handle": {
-                    "Ref": "WebServerWaitHandle"
+
+        "WaitHandle" : {
+            "Type" : "AWS::CloudFormation::WaitConditionHandle"
+        },
+
+        "WaitCondition" : {
+            "Type" : "AWS::CloudFormation::WaitCondition",
+            "DependsOn" : "ClusterDirectorInstance",
+            "Properties" : {
+                "Handle" : {
+                    "Ref" : "WaitHandle"
                 },
-                "Timeout": "9000"
+                "Timeout" : "9000"
             }
         }
     },
@@ -602,19 +666,43 @@
     "Outputs" : {
         "VPCId" : {
             "Description" : "VPC Id of the Cluster VPC",
-            "Value" :  { "Ref" : "VPC" }
+            "Value" : { "Ref" : "VPC" }
         },
         "SubnetId" : {
             "Description" : "Subnet Id of the Cluster Subnet",
-            "Value" :  { "Ref" : "PublicSubnet" }
+            "Value" : { "Ref" : "PublicSubnet" }
         },
-        "DNSName" : {
-            "Description" : "DNS Name of the CDH Cluster Launcher instance",
-            "Value" :  { "Fn::GetAtt" : ["ClusterLauncherInstance", "PublicDnsName"] }
+        "Region" : {
+            "Description" : "AWS Region of the Cluster",
+            "Value" : { "Ref" : "AWS::Region" }
         },
-        "IPAddress" : {
-            "Description" : "IP Address of the CDH Cluster Launcher instance",
-            "Value" :  { "Fn::GetAtt" : ["ClusterLauncherInstance", "PublicIp"] }
+        "ClusterName" : {
+            "Description" : "Cluster Name",
+            "Value" : { "Ref" : "Cluster" }
+        },
+        "DirectorIPAddress" : {
+            "Description" : "IP Address of the Cluster Director instance",
+            "Value" : { "Fn::GetAtt" : ["ClusterDirectorInstance", "PublicIp"] }
+        },
+        "HarmonyIPAddress" : {
+            "Description" : "IP Address of the Harmony Server instance",
+            "Value" : { "Fn::GetAtt" : ["HarmonyServerInstance", "PublicIp"] }
+        },
+        "PublicDNSZone" : {
+            "Description" : "Public DNS Zone ID",
+            "Value" : { "Ref" : "PublicDNSZone" }
+        },
+        "PrivateDNSZone" : {
+            "Description" : "Private DNS Zone ID",
+            "Value" : { "Ref" : "PrivateDNSZone" }
+        },
+        "AccessKeyId" : {
+            "Description" : "Cluster Director Access Key ID",
+            "Value" : { "Ref" : "ClusterDirectorAccessKey" }
+        },
+        "SecretAccessKey" : {
+            "Description" : "Cluster Director Secret Access Key",
+            "Value" : { "Fn::GetAtt" : ["ClusterDirectorAccessKey", "SecretAccessKey"] }
         }
     }
 }
