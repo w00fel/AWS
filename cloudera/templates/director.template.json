@@ -1,6 +1,6 @@
 {
     "AWSTemplateFormatVersion" : "2010-09-09",
-    "Description" : "AWS CloudFormation Deployment for Cloudera CDH",
+    "Description" : "AWS CloudFormation Infrastructure for Cloudera CDH",
     "Parameters" : {
         "BuildBucket" : {
             "Description" : "S3 bucket containing templates and scripts. [Don't change]",
@@ -345,15 +345,15 @@
             }
         },
 
-        "ClusterControllerQueue" : {
+        "ClusterConductorQueue" : {
             "Type": "AWS::SQS::Queue"
         },
 
-        "ClusterControllerTopic" : {
+        "ClusterConductorTopic" : {
             "Type" : "AWS::SNS::Topic",
             "Properties" : {
                 "Subscription" : [{
-                    "Endpoint" : { "Fn::GetAtt": ["ClusterControllerQueue", "Arn"] },
+                    "Endpoint" : { "Fn::GetAtt": ["ClusterConductorQueue", "Arn"] },
                     "Protocol" : "sqs"
                 }]
             }
@@ -440,7 +440,7 @@
                                 "sqs:ChangeMessageVisibility"
                             ],
                             "Resource" : [{
-                                    "Fn::GetAtt": ["ClusterControllerQueue", "Arn"]
+                                    "Fn::GetAtt": ["ClusterConductorQueue", "Arn"]
                             }]
                         }
                     ]
@@ -454,7 +454,7 @@
             }
         },
 
-        "ClusterTopicToQueuePolicy" : {
+        "ClusterQueuePolicy" : {
             "Type" : "AWS::SQS::QueuePolicy",
             "Properties" : {
                 "PolicyDocument" : {
@@ -471,7 +471,7 @@
                             "Condition" : {
                                 "ArnEquals" : {
                                     "aws:SourceArn" : {
-                                        "Ref" : "ClusterControllerTopic"
+                                        "Ref" : "ClusterConductorTopic"
                                     }
                                 }
                             }
@@ -479,7 +479,7 @@
                     ]
                 },
                 "Queues": [{
-                        "Ref": "ClusterControllerQueue"
+                        "Ref": "ClusterConductorQueue"
                 }]
             }
         },
@@ -700,7 +700,7 @@
                                 "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, "aws/cfn-resource-bridge.conf"
                             ]]},
                             "context" : {
-                                "queue_url" : { "Ref": "ClusterControllerQueue" }
+                                "queue_url" : { "Ref": "ClusterConductorQueue" }
                             },
                             "mode" : "000644",
                             "owner" : "root",
@@ -771,10 +771,7 @@
                     "#\n",
                     "mv /home/ubuntu/cloudera/director-client/*/* /home/ubuntu/cloudera/director-client\n",
                     "rm -rf /home/ubuntu/cloudera/director-client/cloudera-director-*\n",
-                    "mv /home/ubuntu/cloudera/director-server/*/* /home/ubuntu/cloudera/director-server\n",
-                    "rm -rf /home/ubuntu/cloudera/director-server/cloudera-director-*\n",
                     "chown -R ubuntu:ubuntu /home/ubuntu\n",
-                    "sudo -u ubuntu /home/ubuntu/cloudera/director-server/bin/start\n",
                     "#\n",
                     "cfn-signal --exit-code $? '", { "Ref" : "ClusterDirectorWaitHandle" }, "'\n"
                 ]]}}
@@ -819,8 +816,8 @@
             "Value" : { "Fn::GetAtt" : ["ClusterDirectorInstance", "PublicIp"] }
         },
         "ServiceToken" : {
-            "Description" : "Cluster Control SQS Topic ARN",
-            "Value" : { "Ref" : "ClusterControllerTopic" }
+            "Description" : "SQS Topic ARN",
+            "Value" : { "Ref" : "ClusterConductorTopic" }
         },
         "PublicDNSZone" : {
             "Description" : "Public DNS Zone ID",

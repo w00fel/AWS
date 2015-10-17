@@ -1,0 +1,20 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "AWS CloudFormation Cluster Conductor",
+    "Parameters" : {
+        "ServiceToken" : {
+            "Description" : "SQS Topic ARN.",
+            "Type" : "String"
+        }
+    },
+
+    "Resources" : {
+        "ClusterConductor" : {
+            "Type" : "Custom::ClusterConductor",
+            "Version" : "1.0",
+            "Properties" : {
+                "ServiceToken" : { "Ref" : "ServiceToken" }
+            }
+        }
+    }
+}

@@ -42,7 +42,7 @@ print("Terminating CDH Cluster", file=LOG)
 args = []
 args.append('/home/ubuntu/cloudera/director-client/bin/cloudera-director')
 args.append('terminate')
-args.append('/home/ubuntu/cloudera/aws.cluster.conf')
+args.append('/home/ubuntu/cloudera/cluster.conf')
 args.append('--lp.terminate.assumeYes=true')
 
 sys.exit(subprocess.Popen(args, stdout=LOG, stderr=subprocess.STDOUT).wait())

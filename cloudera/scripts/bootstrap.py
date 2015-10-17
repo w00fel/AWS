@@ -10,6 +10,6 @@ print("Bootstrapping CDH Cluster", file=LOG)
 args = []
 args.append('/home/ubuntu/cloudera/director-client/bin/cloudera-director')
 args.append('bootstrap')
-args.append('/home/ubuntu/cloudera/aws.cluster.conf')
+args.append('/home/ubuntu/cloudera/cluster.conf')
 
 sys.exit(subprocess.Popen(args, stdout=LOG, stderr=subprocess.STDOUT).wait())

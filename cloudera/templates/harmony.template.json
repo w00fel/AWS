@@ -1,6 +1,6 @@
 {
     "AWSTemplateFormatVersion" : "2010-09-09",
-    "Description" : "AWS CloudFormation Deployment for Cloudera CDH",
+    "Description" : "AWS CloudFormation Harmony Server",
     "Parameters" : {
         "BuildBucket" : {
             "Description" : "S3 bucket containing templates and scripts. [Don't change]",
