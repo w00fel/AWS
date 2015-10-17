@@ -248,10 +248,6 @@ class ResourceEvent():
         return self._event["RequestType"]
 
     @property
-    def request_id(self):
-        return self._event["RequestId"]
-
-    @property
     def resource_type(self):
         return self._event["ResourceType"]
 

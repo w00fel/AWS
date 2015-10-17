@@ -8,7 +8,7 @@
             "Default" : "cleo-cdh-aws"
         },
 
-        "Cluster" : {
+        "ClusterName" : {
             "Description" : "Cluster Name.",
             "Type" : "String",
             "Default" : "CDH-Cluster-AWS"
@@ -17,7 +17,7 @@
         "ClusterConfig" : {
             "Description" : "Cluster configuration file name.",
             "Type" : "String",
-            "Default" : "aws.cluster.conf"
+            "Default" : "cluster.conf"
         },
 
         "ClusterDirectorType" : {
@@ -72,16 +72,6 @@
             "MinLength" : "1",
             "MaxLength" : "2",
             "AllowedPattern" : "[0-9]+"
-        },
-
-        "HarmonyServerType" : {
-            "Description" : "EC2 instance type for the Harmony Server.",
-            "Type" : "String",
-            "Default" : "t2.large",
-            "AllowedValues" : [
-                "t2.large",
-                "m4.large"
-            ]
         },
 
         "KeyName" : {
@@ -408,20 +398,6 @@
             }
         },
 
-        "HarmonyServerRole" : {
-            "Type" : "AWS::IAM::Role",
-            "Properties" : {
-                "AssumeRolePolicyDocument" : {
-                    "Version" : "2012-10-17",
-                    "Statement" : [{
-                        "Effect" : "Allow",
-                        "Principal" : { "Service": [ "ec2.amazonaws.com" ] },
-                        "Action" : [ "sts:AssumeRole" ]
-                    }]
-                }
-            }
-        },
-
         "ClusterIAMPolicy" : {
             "Type": "AWS::IAM::Policy",
             "Properties" : {
@@ -527,8 +503,7 @@
                     ]
                 },
                 "Roles" : [
-                    { "Ref" : "ClusterDirectorRole" },
-                    { "Ref" : "HarmonyServerRole" }
+                    { "Ref" : "ClusterDirectorRole" }
                 ],
                 "Users" : [
                     { "Ref" : "ClusterDirectorUser" }
@@ -631,8 +606,7 @@
                 },
                 "Roles" : [
                     { "Ref" : "ClusterDirectorRole" },
-                    { "Ref" : "ClusterNodeRole" },
-                    { "Ref" : "HarmonyServerRole" }
+                    { "Ref" : "ClusterNodeRole" }
                 ],
                 "Users" : [
                     { "Ref" : "ClusterDirectorUser" }
@@ -658,15 +632,6 @@
             }
         },
 
-        "HarmonyServerInstanceProfile" : {
-            "Type" : "AWS::IAM::InstanceProfile",
-            "Properties" : {
-                "Roles" : [
-                    { "Ref" : "HarmonyServerRole" }
-                ]
-            }
-        },
-
         "ClusterDirectorInstance" : {
             "Type" : "AWS::EC2::Instance",
             "DependsOn" : "PrivateDNSZone",
@@ -679,12 +644,12 @@
                 }},
                 "AWS::CloudFormation::Init" : { "config" : {
                     "files" : {
-                        "/home/ubuntu/cloudera/aws.cluster.conf" : {
+                        "/home/ubuntu/cloudera/cluster.conf" : {
                             "source" : { "Fn::Join" : [ "/", [
                                 "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, { "Ref" : "ClusterConfig" }
                             ]]},
                             "context" : {
-                                "cluster"       : { "Ref" : "Cluster" },
+                                "cluster"       : { "Ref" : "ClusterName" },
                                 "region"        : { "Ref" : "AWS::Region" },
                                 "subnet"        : { "Ref" : "PublicSubnet" },
                                 "securityGroup" : { "Ref" : "SecurityGroup" },
@@ -752,9 +717,7 @@
                             "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, "aws/cfn-resource-bridge.zip"
                         ]]},
                         "/home/ubuntu/cloudera/director-client" :
-                            "http://archive.cloudera.com/director/director/1/cloudera-director-client-latest.tar.gz",
-                        "/home/ubuntu/cloudera/director-server" :
-                            "http://archive.cloudera.com/director/director/1/cloudera-director-server-latest.tar.gz"
+                            "http://archive.cloudera.com/director/director/1/cloudera-director-client-latest.tar.gz"
                     },
                     "commands" : {
                         "00_install_cfn_resource_bridge" : {
@@ -831,131 +794,6 @@
                 },
                 "Timeout" : "9000"
             }
-        },
-
-        "ClusterController" : {
-            "Type" : "Custom::ClusterController",
-            "DependsOn" : "ClusterDirectorInstance",
-            "Version" : "1.0",
-            "Properties" : {
-                "ServiceToken" : { "Ref" : "ClusterControllerTopic" }
-            }
-        },
-
-        "HarmonyServerInstance" : {
-            "Type" : "AWS::EC2::Instance",
-            "DependsOn" : "ClusterController",
-            "Metadata" : {
-                "AWS::CloudFormation::Authentication" : { "S3AccessCreds" : {
-                    "type"        : "S3",
-                    "buckets"     : [ { "Ref" : "BuildBucket" } ],
-                    "accessKeyId" : { "Ref" : "ClusterDirectorAccessKey" },
-                    "secretKey"   : { "Fn::GetAtt" : ["ClusterDirectorAccessKey", "SecretAccessKey"] }
-                }},
-                "AWS::CloudFormation::Init" : { "config" : {
-                    "files" : {
-                        "/home/ubuntu/install.bin" : {
-                            "source" : { "Fn::Join" : [ "/", [
-                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" },
-                                "harmony/Harmony-5.2.1.0-linux64-jre17.bin"
-                            ]]},
-                            "mode" : "000755"
-                        },
-                        "/home/ubuntu/route53.sh" : {
-                            "source" : { "Fn::Join" : [ "/", [
-                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, "route53.sh"
-                            ]]},
-                            "context" : {
-                                "region"        : { "Ref" : "AWS::Region" },
-                                "publicDomain"  : { "Ref" : "PublicDNSDomain" },
-                                "privateZone"   : { "Ref" : "PrivateDNSZone" },
-                                "publicZone"    : { "Ref" : "PublicDNSZone" }
-                            },
-                            "mode" : "000755"
-                        },
-                        "/home/ubuntu/Harmony/license_key.txt" : {
-                            "source" : { "Fn::Join" : [ "/", [
-                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" },
-                                "harmony/license_key.txt"
-                            ]]},
-                            "mode" : "000644"
-                        },
-                        "/home/ubuntu/Harmony/conf/system.properties" : {
-                            "source" : { "Fn::Join" : [ "/", [
-                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" },
-                                "harmony/system.properties"
-                            ]]},
-                            "mode" : "000644"
-                        },
-                        "/home/ubuntu/Harmony/lib/uri/cleouriwebhdfs.jar" : {
-                            "source" : { "Fn::Join" : [ "/", [
-                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" },
-                                "harmony/cleouriwebhdfs-5.2.1.0.jar"
-                            ]]},
-                            "mode" : "000644"
-                        },
-                        "/home/ubuntu/.ssh/id_rsa" : {
-                            "source" : { "Fn::Join" : [ "/", [
-                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, "default.pem"
-                            ]]},
-                            "mode" : "000400"
-                        }
-                    },
-                    "packages" : {
-                        "apt" : {
-                            "default-jre" : []
-                        }
-                    }
-                }}
-            },
-            "Properties" : {
-                "InstanceType" : { "Ref" : "HarmonyServerType" },
-                "IamInstanceProfile" : { "Ref" : "HarmonyServerInstanceProfile" },
-                "KeyName"  : { "Ref" : "KeyName" },
-                "ImageId"  : { "Fn::FindInMap": [ "UbuntuAMI", { "Ref" : "AWS::Region" }, "AMI" ] },
-                "NetworkInterfaces" : [{
-                    "GroupSet"                 : [{ "Ref" : "SecurityGroup" }],
-                    "SubnetId"                 : {  "Ref" : "PublicSubnet" },
-                    "AssociatePublicIpAddress" : "true",
-                    "DeleteOnTermination"      : "true",
-                    "DeviceIndex"              : "0"
-                }],
-                "Tags" : [
-                    { "Key" : "Name", "Value" : "Harmony Server" },
-                    { "Key" : "group", "Value" : "harmony" }
-                ],
-                "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "", [
-                    "#!/bin/bash -ex\n",
-                    "apt-get update\n",
-                    "apt-get -y install python-setuptools\n",
-                    "apt-get install unzip\n",
-                    "easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
-                    "#\n",
-                    "cfn-init --stack ", { "Ref" : "AWS::StackName" },
-                    "    --resource HarmonyServerInstance",
-                    "    --region ", { "Ref" : "AWS::Region" }, "\n",
-                    "#\n",
-                    "chown -R ubuntu:ubuntu /home/ubuntu\n",
-                    "sudo -u ubuntu /home/ubuntu/install.bin -i silent\n",
-                    "#\n",
-                    "cfn-signal --exit-code $? '", { "Ref" : "HarmonyServerWaitHandle" }, "'\n"
-                ]]}}
-            }
-        },
-
-        "HarmonyServerWaitHandle" : {
-            "Type" : "AWS::CloudFormation::WaitConditionHandle"
-        },
-
-        "HarmonyServerWaitCondition" : {
-            "Type" : "AWS::CloudFormation::WaitCondition",
-            "DependsOn" : "HarmonyServerInstance",
-            "Properties" : {
-                "Handle" : {
-                    "Ref" : "HarmonyServerWaitHandle"
-                },
-                "Timeout" : "9000"
-            }
         }
     },
 
@@ -974,15 +812,15 @@
         },
         "ClusterName" : {
             "Description" : "Cluster Name",
-            "Value" : { "Ref" : "Cluster" }
+            "Value" : { "Ref" : "ClusterName" }
         },
         "ClusterDirector" : {
             "Description" : "IP Address of the Cluster Director instance",
             "Value" : { "Fn::GetAtt" : ["ClusterDirectorInstance", "PublicIp"] }
         },
-        "HarmonyServer" : {
-            "Description" : "IP Address of the Harmony Server instance",
-            "Value" : { "Fn::GetAtt" : ["HarmonyServerInstance", "PublicIp"] }
+        "ServiceToken" : {
+            "Description" : "Cluster Control SQS Topic ARN",
+            "Value" : { "Ref" : "ClusterControllerTopic" }
         },
         "PublicDNSZone" : {
             "Description" : "Public DNS Zone ID",

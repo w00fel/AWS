@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import subprocess
 import boto
 import sys
@@ -10,10 +12,10 @@ from boto.route53.exception import DNSServerError
 PUBLIC_ZONE_ID = "{{publicZone}}"
 PRIVATE_ZONE_ID = "{{privateZone}}"
 
-LOG = open('/home/ubuntu/cloudera/terminate.log', 'a')
+LOG = open('/home/ubuntu/cloudera/terminate.log', 'a', 0)
 
 # Delete DNS Records
-print >> LOG, "Deleting DNS Records\n"
+print("Deleting DNS Records", file=LOG)
 conn = boto.connect_route53()
 try:
     hosts = []
@@ -33,20 +35,14 @@ try:
             changes.commit()
 
 except DNSServerError:
-    print >> LOG, "Error Deleting DNS Records\n"
+    print("Error Deleting DNS Records", file=LOG)
 
 # Terminate Cluster
-print >> LOG, "Terminating CDH Cluster\n"
+print("Terminating CDH Cluster", file=LOG)
 args = []
 args.append('/home/ubuntu/cloudera/director-client/bin/cloudera-director')
-args.append('terminate-remote')
+args.append('terminate')
 args.append('/home/ubuntu/cloudera/aws.cluster.conf')
-args.append('--lp.remote.username=admin')
-args.append('--lp.remote.password=admin')
-args.append('--lp.remote.hostAndPort=127.0.0.1:7189')
-args.append('--lp.remote.terminate.assumeYes=true')
+args.append('--lp.terminate.assumeYes=true')
 
-subprocess.Popen(args, stdout=LOG, stderr=subprocess.STDOUT).wait()
-
-print '{ "ControllerAction" : "terminated" }'
-sys.exit(0)
+sys.exit(subprocess.Popen(args, stdout=LOG, stderr=subprocess.STDOUT).wait())

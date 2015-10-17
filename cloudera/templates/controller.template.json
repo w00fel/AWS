@@ -1,0 +1,27 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "AWS CloudFormation Cluster Controller",
+    "Parameters" : {
+        "ClusterControl" : {
+            "Description" : "Cluster Control SQS Topic.",
+            "Type" : "String"
+        }
+    },
+
+    "Resources" : {
+        "ClusterController" : {
+            "Type" : "Custom::ClusterController",
+            "Version" : "1.0",
+            "Properties" : {
+                "ServiceToken" : { "Ref" : "ClusterControl" }
+            }
+        }
+    },
+
+    "Outputs" : {
+        "ClusterController" : {
+            "Description" : "Cluster Controller resource",
+            "Value" : { "Ref" : "ClusterController" }
+        }
+    }
+}

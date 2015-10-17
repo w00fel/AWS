@@ -18,9 +18,9 @@ from Queue import Queue
 import logging
 from .vendored.botocore import session as bc_session
 from .resources import Message, ResourceEvent, CustomResource
-from .cache import CacheInventory, CachedObject
 
 log = logging.getLogger("cfn.resourcebridge")
+
 
 class CfnBridge(object):
     def __init__(self, custom_resources, num_threads=None):
@@ -29,9 +29,6 @@ class CfnBridge(object):
 
         # Construct an unbounded Queue to hold our pending tasks
         self._task_queue = Queue()
-
-        # RequestId cache to handle duplicate messages
-        self._request_cache = CacheInventory(housekeeping=60)
 
         # List of queues already being polled.
         queues = set()
@@ -45,7 +42,7 @@ class CfnBridge(object):
             existing_res = self._resource_lookup.get(lookup)
             if existing_res:
                 raise ValueError(u"[%s] section in '%s' handles the same events as [%s] in '%s'" %
-                        (new_res.name, new_res.source_file, existing_res.name, existing_res.source_file))
+                                (new_res.name, new_res.source_file, existing_res.name, existing_res.source_file))
 
             # Add our resource into the lookup
             self._resource_lookup[lookup] = new_res
@@ -54,8 +51,7 @@ class CfnBridge(object):
             if new_res.queue_url not in queues:
                 queues.add(new_res.queue_url)
                 # Construct a task to poll the new queue
-                self._task_queue.put(QueuePollTask(
-                        new_res.queue_url, new_res.region, self._resource_lookup, self._request_cache))
+                self._task_queue.put(QueuePollTask(new_res.queue_url, new_res.region, self._resource_lookup))
 
         # Determine the maximum number of threads to use
         count = len(custom_resources)
@@ -114,11 +110,10 @@ class BaseTask(object):
 
 
 class QueuePollTask(BaseTask):
-    def __init__(self, queue_url, region, custom_resource_lookup, request_cache):
+    def __init__(self, queue_url, region, custom_resource_lookup):
         self._queue_url = queue_url
         self._region = region
         self._resource_lookup = custom_resource_lookup
-        self._request_cache = request_cache
 
     def retrieve_events(self, max_events=1):
         """Attempts to retrieve events from the provided SQS queue"""
@@ -165,7 +160,6 @@ class QueuePollTask(BaseTask):
         for event in events:
             service_token = event.get('ServiceToken')
             resource_type = event.resource_type
-            request_id = event.request_id
 
             # Try to locate a handler for our event, starting with most specific lookup first
             resource = self._find_resource(self._queue_url, service_token, resource_type)
@@ -178,13 +172,8 @@ class QueuePollTask(BaseTask):
 
             # Handle the event using the found resource
             if resource:
-                # Check for duplicate message based on RequestId
-                if self._request_cache.get(request_id):
-                    log.debug(u"Ignoring duplicate event: %s", event)
-                else:
-                    self._request_cache.add(obj=CachedObject(name=request_id, obj=event, ttl=10*60))
-                    event.increase_timeout(resource.determine_event_timeout(event))
-                    tasks.append(ResourceEventTask(resource, event))
+                event.increase_timeout(resource.determine_event_timeout(event))
+                tasks.append(ResourceEventTask(resource, event))
             else:
                 # No handler, log an error and leave the message on the queue.
                 log.error(u"Unable to find handler for Event from %s with ServiceToken(%s) and ResourceType(%s); "

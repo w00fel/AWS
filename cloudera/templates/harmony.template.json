@@ -1,0 +1,260 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "AWS CloudFormation Deployment for Cloudera CDH",
+    "Parameters" : {
+        "BuildBucket" : {
+            "Description" : "S3 bucket containing templates and scripts. [Don't change]",
+            "Type" : "String",
+            "Default" : "cleo-cdh-aws"
+        },
+
+        "HarmonyServerType" : {
+            "Description" : "EC2 instance type for the Harmony Server.",
+            "Type" : "String",
+            "Default" : "t2.large",
+            "AllowedValues" : [
+                "t2.large",
+                "m4.large"
+            ]
+        },
+
+        "KeyName" : {
+            "Description" : "Name of an existing EC2 KeyPair.",
+            "Type" : "AWS::EC2::KeyPair::KeyName",
+            "Default" : "Hadoop"
+        },
+
+        "SSHLocation" : {
+            "Description" : "IP CIDR from which you access the Cluster instances.",
+            "Type" : "String",
+            "MinLength" : "9",
+            "MaxLength" : "18",
+            "Default" : "0.0.0.0/0",
+            "AllowedPattern" : "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription" : "must be a valid CIDR range of the form x.x.x.x/x."
+        }
+    },
+
+    "Mappings" : {
+        "UbuntuAMI" : {
+            "Description" :    "Ubuntu Server 14.04 LTS (HVM), SSD Volume Type",
+            "us-east-1" :      { "AMI" : "ami-d05e75b8" },
+            "us-west-1" :      { "AMI" : "ami-df6a8b9b" },
+            "us-west-2" :      { "AMI" : "ami-5189a661" },
+            "eu-west-1" :      { "AMI" : "ami-47a23a30" },
+            "eu-central-1" :   { "AMI" : "ami-accff2b1" },
+            "ap-northeast-1" : { "AMI" : "ami-936d9d93" },
+            "ap-southeast-1" : { "AMI" : "ami-96f1c1c4" },
+            "ap-southeast-2" : { "AMI" : "ami-69631053" },
+            "sa-east-1" :      { "AMI" : "ami-4d883350" }
+        }
+    },
+
+    "Resources" : {
+        "SecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Harmony Server",
+                "SecurityGroupIngress" : [
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort"   : "22",
+                        "ToPort"     : "22",
+                        "CidrIp"     : { "Ref" : "SSHLocation" }
+                    },
+                    {
+                        "IpProtocol" : "udp",
+                        "FromPort"   : "123",
+                        "ToPort"     : "123",
+                        "CidrIp"     : "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort"   : "5000",
+                        "ToPort"     : "65535",
+                        "CidrIp"     : "0.0.0.0/0"
+                    }
+                ],
+                "Tags" : [
+                    { "Key" : "Name", "Value" : "Harmony Server" }
+                ]
+            }
+        },
+
+        "HarmonyServerUser" : {
+            "Type" : "AWS::IAM::User"
+        },
+
+        "HarmonyServerAccessKey" : {
+            "Type" : "AWS::IAM::AccessKey",
+            "Properties" : {
+                "UserName" : { "Ref" : "HarmonyServerUser" }
+            }
+        },
+
+        "HarmonyServerRole" : {
+            "Type" : "AWS::IAM::Role",
+            "Properties" : {
+                "AssumeRolePolicyDocument" : {
+                    "Version" : "2012-10-17",
+                    "Statement" : [{
+                        "Effect" : "Allow",
+                        "Principal" : { "Service": [ "ec2.amazonaws.com" ] },
+                        "Action" : [ "sts:AssumeRole" ]
+                    }]
+                }
+            }
+        },
+
+        "HarmonyS3Policy" : {
+            "Type": "AWS::IAM::Policy",
+            "Properties" : {
+                "PolicyName" : "ClusterS3",
+                "PolicyDocument" : {
+                    "Version" : "2012-10-17",
+                    "Statement" : [
+                        {
+                            "Effect" : "Allow",
+                            "Action" : [
+                                "s3:GetObject"
+                            ],
+                            "Resource" : [
+                                "*"
+                            ]
+                        }
+                    ]
+                },
+                "Roles" : [
+                    { "Ref" : "HarmonyServerRole" }
+                ],
+                "Users" : [
+                    { "Ref" : "HarmonyServerUser" }
+                ]
+            }
+        },
+
+        "HarmonyServerInstanceProfile" : {
+            "Type" : "AWS::IAM::InstanceProfile",
+            "Properties" : {
+                "Roles" : [
+                    { "Ref" : "HarmonyServerRole" }
+                ]
+            }
+        },
+
+        "HarmonyServerInstance" : {
+            "Type" : "AWS::EC2::Instance",
+            "Metadata" : {
+                "AWS::CloudFormation::Authentication" : { "S3AccessCreds" : {
+                    "type"        : "S3",
+                    "buckets"     : [ { "Ref" : "BuildBucket" } ],
+                    "accessKeyId" : { "Ref" : "HarmonyServerAccessKey" },
+                    "secretKey"   : { "Fn::GetAtt" : ["HarmonyServerAccessKey", "SecretAccessKey"] }
+                }},
+                "AWS::CloudFormation::Init" : { "config" : {
+                    "files" : {
+                        "/home/ubuntu/install.bin" : {
+                            "source" : { "Fn::Join" : [ "/", [
+                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" },
+                                "harmony/Harmony-5.2.1.0-linux64-jre17.bin"
+                            ]]},
+                            "mode" : "000755"
+                        },
+                        "/home/ubuntu/Harmony/license_key.txt" : {
+                            "source" : { "Fn::Join" : [ "/", [
+                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" },
+                                "harmony/license_key.txt"
+                            ]]},
+                            "mode" : "000644"
+                        },
+                        "/home/ubuntu/Harmony/conf/system.properties" : {
+                            "source" : { "Fn::Join" : [ "/", [
+                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" },
+                                "harmony/system.properties"
+                            ]]},
+                            "mode" : "000644"
+                        },
+                        "/home/ubuntu/Harmony/lib/uri/cleouriwebhdfs.jar" : {
+                            "source" : { "Fn::Join" : [ "/", [
+                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" },
+                                "harmony/cleouriwebhdfs-5.2.1.0.jar"
+                            ]]},
+                            "mode" : "000644"
+                        },
+                        "/home/ubuntu/.ssh/id_rsa" : {
+                            "source" : { "Fn::Join" : [ "/", [
+                                "https://s3.amazonaws.com", { "Ref" : "BuildBucket" }, "default.pem"
+                            ]]},
+                            "mode" : "000400"
+                        }
+                    },
+                    "packages" : {
+                        "apt" : {
+                            "default-jre" : []
+                        }
+                    }
+                }}
+            },
+            "Properties" : {
+                "InstanceType" : { "Ref" : "HarmonyServerType" },
+                "IamInstanceProfile" : { "Ref" : "HarmonyServerInstanceProfile" },
+                "KeyName"  : { "Ref" : "KeyName" },
+                "ImageId"  : { "Fn::FindInMap": [ "UbuntuAMI", { "Ref" : "AWS::Region" }, "AMI" ] },
+                "SecurityGroups" : [ { "Ref" : "SecurityGroup" } ],
+                "Tags" : [
+                    { "Key" : "Name", "Value" : "Harmony Server" },
+                    { "Key" : "group", "Value" : "harmony" }
+                ],
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "", [
+                    "#!/bin/bash -ex\n",
+                    "apt-get update\n",
+                    "apt-get -y install python-setuptools\n",
+                    "easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                    "#\n",
+                    "cfn-init --stack ", { "Ref" : "AWS::StackName" },
+                    "    --resource HarmonyServerInstance",
+                    "    --region ", { "Ref" : "AWS::Region" }, "\n",
+                    "#\n",
+                    "chown -R ubuntu:ubuntu /home/ubuntu\n",
+                    "sudo -u ubuntu /home/ubuntu/install.bin -i silent\n",
+                    "#\n",
+                    "cfn-signal --exit-code $? '", { "Ref" : "HarmonyServerWaitHandle" }, "'\n"
+                ]]}}
+            }
+        },
+
+        "HarmonyServerWaitHandle" : {
+            "Type" : "AWS::CloudFormation::WaitConditionHandle"
+        },
+
+        "HarmonyServerWaitCondition" : {
+            "Type" : "AWS::CloudFormation::WaitCondition",
+            "DependsOn" : "HarmonyServerInstance",
+            "Properties" : {
+                "Handle" : {
+                    "Ref" : "HarmonyServerWaitHandle"
+                },
+                "Timeout" : "9000"
+            }
+        }
+    },
+
+    "Outputs" : {
+        "Region" : {
+            "Description" : "AWS Region of the Harmony Server",
+            "Value" : { "Ref" : "AWS::Region" }
+        },
+        "HarmonyServer" : {
+            "Description" : "IP Address of the Harmony Server instance",
+            "Value" : { "Fn::GetAtt" : ["HarmonyServerInstance", "PublicIp"] }
+        },
+        "AccessKeyId" : {
+            "Description" : "Cluster User Access Key ID",
+            "Value" : { "Ref" : "HarmonyServerAccessKey" }
+        },
+        "SecretAccessKey" : {
+            "Description" : "Cluster User Secret Access Key",
+            "Value" : { "Fn::GetAtt" : ["HarmonyServerAccessKey", "SecretAccessKey"] }
+        }
+    }
+}
